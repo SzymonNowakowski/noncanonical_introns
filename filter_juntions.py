@@ -7,7 +7,8 @@ from collections import defaultdict
 
 def junctions_to_introns(file_in, file_out):
     """
-    Take junctions created by RegTools and save to .bed file only the location and support of introns.
+    Take junctions created by RegTools and save to .bed file only the location and support of introns. Also sort
+    the introns by scaffold and then by start for easier analyses later.
 
     :param file_in: (str) Path to the RegTools in file.
     :param file_out: (str) Path to the out file.
