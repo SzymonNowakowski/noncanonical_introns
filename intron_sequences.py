@@ -43,12 +43,13 @@ def seq_statistics(introns):
     gc = sum([gc_content(intron) for intron in introns]) / len(introns)
     print('Mean gc: ', gc)
 
-    # print('Tetranucleotides: ')
-    # ini_dict = []
-    # for intron in introns:
-    #     ini_dict.append(oligofreq(intron.sequence, 4))
-    # result = dict(functools.reduce(operator.add, map(collections.Counter, ini_dict)))
+    print('Tetranucleotides: ')
+    ini_dict = []
+    for intron in introns:
+        ini_dict.append(oligofreq(intron.sequence, 4))
+    result = dict(functools.reduce(operator.add, map(collections.Counter, ini_dict)))
     # print([(j, v) for j, v in sorted(result.items(), key=lambda item: item[1], reverse=True)][:10])
+    # return dict([(j, v) for j, v in sorted(result.items(), key=lambda item: item[1], reverse=True)][:10])
 
     def extract_junction(intron):
         return intron.sequence[intron.margin_left:intron.margin_left + 2] +\
@@ -60,7 +61,9 @@ def seq_statistics(introns):
         junctions[junction] += 1
 
     top10 = [(j, v) for j, v in sorted(junctions.items(), key=lambda item: item[1], reverse=True)][:10]
-    print('Top junctions: ', top10)
+    # print('Top junctions: ', top10)
+    # junctions = [(j, v) for j, v in sorted(junctions.items(), key=lambda item: item[1], reverse=True)]
+    return junctions
 
 
 def main():
@@ -74,29 +77,21 @@ def main():
     # sons = []
     for intron in introns:
         intron.movable_boundary()
-        # sons.append(len(intron.sons))
-        # if len(intron.sons) > 1:
-        #     print(intron, intron.sequence)
-        #     for son in intron.sons:
-        #         print(son.margin_left, son.margin_right)
         if intron.check_conventional():
             conv.append(intron)
-            # if intron.check_unconventional():
-            #     non_conv.append(intron)
         elif intron.check_unconventional():
             non_conv.append(intron)
         else:
             rest.append(intron)
 
     print('conv stats: ')
-    seq_statistics(conv)
+    _ = seq_statistics(conv)
+    
     print('\nnonconv stats: ')
-    seq_statistics(non_conv)
-    print('\nrest: ')
-    seq_statistics(rest)
+    _ = seq_statistics(non_conv)
 
-    # plt.hist(sons)
-    # plt.show()
+    print('\nrest: ')
+    junctions = seq_statistics(rest)
 
 
 if __name__ == "__main__":

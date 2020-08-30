@@ -143,9 +143,24 @@ def introns_for_seq(file_in, file_out, margin):
             f_out.write('\n')
 
 
+def introns_for_seq2(file_in, file_out_start, file_out_end, margin1, margin2):
+    """Create a file with introns elongated by a margin to extract sequences with parts of neighbouring exons."""
+    with open(file_out_start, 'w') as f_out_start:
+        with open(file_out_end, 'w') as f_out_end:
+            for line in process_file(file_in):
+                new_line1 = '\t'.join([str(x) for x in [line[0], line[1] - margin1, line[1] + margin2]])
+                f_out_start.write(new_line1)
+                f_out_start.write('\n')
+
+                new_line2 = '\t'.join([str(x) for x in [line[0], line[2] - margin2, line[2] + margin1]])
+                f_out_end.write(new_line2)
+                f_out_end.write('\n')
+
 def main():
     m = 20
     path = '/home/julia/Documents/licencjat/'
+
+    introns_for_seq2(path + 'introns_hisat_50_cross_checked+3.bed', path + 'starty_int.bed', path + 'koncze_int.bed,', 5, 20)
 
     programs = ['hisat', 'star']
     # for program in programs:
@@ -167,7 +182,7 @@ def main():
     #
     #     compare_best_introns(all_i, best_i)
 
-    introns_for_seq(path + 'introns_hisat_50_cross_checked+3.bed', path + 'introns_hisat_50_cross_checked.bed', -3)
+    # introns_for_seq(path + 'introns_hisat_50_cross_checked+3.bed', path + 'introns_hisat_50_cross_checked.bed', -3)
     # introns_for_seq(path + 'best_introns_hisat50.bed', path + 'best_introns_hisat_50+0.bed', 0)
 
 

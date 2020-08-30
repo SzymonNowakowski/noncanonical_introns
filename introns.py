@@ -14,7 +14,7 @@ class Intron:
 
     def __init__(self, scaffold, start, end, strand=None, support=None, margin_left=0, margin_right=0, sequence=None):
         self.scaffold = scaffold
-        if start < end:
+        if int(start) < int(end):
             self.start = int(start)
             self.end = int(end)
         else:
@@ -88,6 +88,8 @@ class Intron:
 
     def length(self):
         """Return length of the intron."""
+        if self.end - self.start < 0:
+            print(self, self.margin_left, self.margin_right)
         return self.end - self.start
 
     def movable_boundary(self):
