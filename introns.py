@@ -1,51 +1,68 @@
+def getter_setter_gen(name, type_):
+    def getter(self):
+        return getattr(self, "__" + name)
+
+    def setter(self, value):
+        if not isinstance(value, type_) and value is not None:
+            raise TypeError("%s attribute must be set to an instance of %s" % (name, type_))
+        setattr(self, "__" + name, value)
+    return property(getter, setter)
+
+
+def auto_attr_check(cls):
+    new_dct = {}
+    for key, value in cls.__dict__.items():
+        if isinstance(value, type):
+            value = getter_setter_gen(key, value)
+        new_dct[key] = value
+    # Creates a new class, using the modified dictionary as the class dict:
+    return type(cls)(cls.__name__, cls.__bases__, new_dct)
+
+
+@auto_attr_check
 class Intron:
     """
     This is a class for working with biological introns.
 
-    :param scaffold (str): Scaffold or chromosome on which the intron is located.
-    :param start (str or int): : Location of the first base of the intron. If str must be convertible to int.
-    :param end (str or int): Location of the fist base of the next exon. If str must be convertible to int.
+    :param scaffold: (str) Scaffold or chromosome on which the intron is located.
+    :param start: (int) Location of the first base of the intron.
+    :param end: (int) Location of the fist base of the next exon.
     :param strand (str): Optional, defines the strand on which intron is located. Must be either + or -.
-    :param support (str or int): Optional, how many reads support the intron. If str must be convertible to int.
-    :param margin (str or int): Optional, how much of exons sequences is included on both ends. If str must be
-    convertible to int.
-    :param sequence (str): Optional, genomic sequence of the intron.
+    :param support: (int) Optional, how many reads support the intron.
+    :param margin: (int) Optional, how much of exons sequences is included on both ends.
+    :param sequence: (str) Optional, genomic sequence of the intron.
     """
+    scaffold = str
+    start = int
+    end = int
+    strand = str
+    support = int
+    margin = int
+    sequence = str
 
     def __init__(self, scaffold, start, end, strand=None, support=None, margin_left=0, margin_right=0, sequence=None):
         self.scaffold = scaffold
-        if int(start) < int(end):
-            self.start = int(start)
-            self.end = int(end)
+        if start < end:
+            self.start = start
+            self.end = end
         else:
-            self.start = int(end)
-            self.end = int(start)
-        self.strand = strand
-        try:
-            self.support = int(support)
-        except TypeError:
-            self.support = None
-        if margin_left:
-            self.margin_left = int(margin_left)
+            self.end = start
+            self.start = end
+        if strand and strand not in ['+', '-']:
+            raise ValueError('Strand can only be + or -')
         else:
-            self.margin_left = 0
-        if margin_right:
-            self.margin_right = int(margin_right)
+            self.strand = strand
+        self.support = support
+        self.margin_left = margin_left
+        self.margin_right = margin_right
+        if sequence and len(sequence) != self.length():
+            raise ValueError('The length of the sequence does not correspond to the intron length.')
         else:
-            self.margin_right = 0
-        if sequence:
-            # if len(sequence) != self.length():
-            #     raise ValueError('The length of the sequence does not correspond to the intron length.')
             self.sequence = sequence
-        else:
-            self.sequence = None
-        self.sons = []
+        self.variations = []
 
     def __repr__(self):
-        if self.support:
-            return ' '.join([self.scaffold, str(self.start), str(self.end), str(self.support)])
-        else:
-            return ' '.join([self.scaffold, str(self.start), str(self.end)])
+        return ' '.join([self.scaffold, str(self.start), str(self.end), str(self.support)])
 
     def __str__(self):
         return self.__repr__()
@@ -63,8 +80,8 @@ class Intron:
         else:
             if self.scaffold != intron.scaffold:
                 raise ValueError('Introns on different scaffold cannot intersect.')
-            if (self.start in range(intron.start, intron.end + 1))\
-                    or (self.end in range(intron.start, intron.end + 1))\
+            if (self.start in range(intron.start, intron.end))\
+                    or (self.end in range(intron.start, intron.end))\
                     or (self.start < intron.start and self.end > intron.end):
                 return True
             else:
@@ -88,19 +105,22 @@ class Intron:
 
     def length(self):
         """Return length of the intron."""
-        if self.end - self.start < 0:
-            print(self, self.margin_left, self.margin_right)
         return self.end - self.start
 
     def movable_boundary(self):
+        """
+        Check if there are repeats on the intron junctions so the intron position could be shifted without changing
+        transcript sequence. If there are, add new possible introns to self.variations.
+        """
         i = 1
-        # start checking left from the junction
+        # start checking for repeats left from the junction
         check = 'left'
 
         while True:
             left_base_index = self.margin_left - i
             right_base_index = -self.margin_right - i
             if left_base_index < 0 or right_base_index > -1:
+                # index out of boundary, change direction
                 if check == 'left':
                     # end of going left, time to go right from the junction
                     check = 'right'
@@ -113,12 +133,14 @@ class Intron:
             left_base = self.sequence[left_base_index]
             right_base = self.sequence[right_base_index]
             if left_base == right_base:
+                # there is a repeat on the junction
                 if check == 'left':
                     new_left_margin, new_right_margin = self.margin_left - i, self.margin_right + i
                 else:
                     new_left_margin, new_right_margin = self.margin_left - (i - 1), self.margin_right + (i - 1)
-                self.sons.append(Intron(self.scaffold, self.start, self.end, margin_left=new_left_margin,\
-                                        margin_right=new_right_margin, sequence=self.sequence))
+                new_variation = Intron(self.scaffold, self.start, self.end, margin_left=new_left_margin,\
+                                       margin_right=new_right_margin, sequence=self.sequence)
+                self.variations.append(new_variation)
             else:
                 if check == 'left':
                     # end of going left, time to go right from the junction
@@ -149,7 +171,8 @@ class Intron:
 
     def check_unconventional(self):
         """Check if intron may be unconventional according to our current knowledge, meaning it can form
-        secondary structure in specific positions."""
+        secondary structure in specific positions. Also check if variations with shifted junctions may be
+        unconventional."""
         def complimentary(n1, n2):
             if {n1, n2} in [{'A', 'T'}, {'C', 'G'}, {'C', 'T'}]:
                 return True
@@ -163,14 +186,9 @@ class Intron:
         if complimentary(left_anchor[0], right_anchor[1]) and complimentary(left_anchor[1], right_anchor[0]):
             return True
         else:
-            if len(self.sons) > 0:
-                for son in self.sons:
+            # checking variations
+            if len(self.variations) > 0:
+                for son in self.variations:
                     if son.check_unconventional():
-                        if son.margin_left < 0 or son.margin_right < 0:
-                            print('somethings fucked', son, son.margin_left, son.margin_right,\
-                                  son.sequence[:10], son.sequence[-10:])
                         return True
             return False
-        # except IndexError:
-        #     print('fuckedup: ', self, self.margin_left, self.margin_right, self.sequence)
-        #     return False
