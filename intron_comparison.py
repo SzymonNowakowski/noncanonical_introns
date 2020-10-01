@@ -1,4 +1,5 @@
 from introns import Intron
+from collections import defaultdict
 
 
 def process_file(file_path):
@@ -50,18 +51,16 @@ def extract_introns_from_gtf(file, file_out):
 
 
 def intron_dict(file):
-    my_introns = {}
+    my_introns = defaultdict(list)
     for line in process_file(file):
         intron = intron_from_line(line)
-        if intron.scaffold not in my_introns.keys():
-            my_introns[intron.scaffold] = [intron]
-        else:
-            my_introns[intron.scaffold].append(intron)
+        my_introns[intron.scaffold].append(intron)
     return my_introns
 
 
 def compare_introns(file, introns2, file_out):
-    '''to be improved'''
+    """Compare two sets of introns, classify the way they intersect and save to file the ones that are identical
+    in both"""
     all_my_introns = 0
     intron_pairs = []
     no_pair = []
@@ -90,34 +89,11 @@ def compare_introns(file, introns2, file_out):
     with open(file_out, 'w') as f_out:
         for i1, i2 in intron_pairs:
             intersection = i1.classify_intersection(i2)
-            if intersection == 'same':
+            if intersection == 2:
                 exact_match.append([i1, i2])
-                f_out.write('\t'.join([i1.scaffold, str(i1.start - 3), str(i1.end + 3)]))
+                f_out.write('\t'.join([i1.scaffold, str(i1.start), str(i1.end)]))
                 f_out.write('\n')
-            elif intersection == 'one end':
+            elif intersection == 1:
                 one_side_match.append([i1, i2])
                 diff_lengths.append(abs(i1.length() - i2.length()))
     return exact_match, one_side_match, diff_lengths
-
-
-def main():
-    path = '/home/julia/Documents/licencjat/'
-    extract_introns_from_gtf(path + 'longa_stringtie_strand_informed.gtf', path + 'introns_pawel.bed')
-    introns_pawel = path + 'introns_pawel.bed'
-    p_introns = intron_dict(introns_pawel)
-
-    file = path + 'best_introns_hisat50.bed'
-    file_out = path + 'introns_hisat_50_cross_checked+3.bed'
-    exact_match, one_side_match, diff_lengths = compare_introns(file, p_introns, file_out)
-
-    print('exact: ', len(exact_match))
-    # print(exact_match)
-
-    print('one side: ', len(one_side_match))
-    # print(one_side_match)
-
-    print([(x, diff_lengths.count(x)) for x in range(10)])
-
-
-if __name__ == '__main__':
-    main()
