@@ -152,37 +152,3 @@ def introns_for_seq2(file_in, file_out_start, file_out_end, margin1, margin2):
                 new_line2 = '\t'.join([str(x) for x in [line[0], line[2] - margin2, line[2] + margin1]])
                 f_out_end.write(new_line2)
                 f_out_end.write('\n')
-
-
-def main():
-    m = 20
-    path = '/home/julia/Documents/licencjat/'
-
-    introns_for_seq2(path + 'introns_hisat_50_cross_checked+3.bed', path + 'starty_int.bed', path + 'koncze_int.bed,', 5, 20)
-
-    programs = ['hisat', 'star']
-    # for program in programs:
-    #     print('Program: ', program)
-    #     file_in = f'{path}junctions_{program}_m{m}.bed'
-    #     file_out = f'{path}good_junctions_{program}.bed'
-    #     # junctions_to_introns(file_in, file_out)
-    #     intron_stats(file_out)
-    #     print('\n')
-
-    # for program in programs:
-    #     print('Program: ', program)
-    #     cutoff = 1
-    #
-    #     file_in = f'{path}good_junctions_{program}.bed'
-    #     file_out = f'{path}best_introns_{program}{cutoff}.bed'
-    #     all_i, best_i = choose_best_introns(file_in, file_out, cutoff)
-    #     intron_stats(file_out)
-    #
-    #     compare_best_introns(all_i, best_i)
-
-    # introns_for_seq(path + 'introns_hisat_50_cross_checked+3.bed', path + 'introns_hisat_50_cross_checked.bed', -3)
-    # introns_for_seq(path + 'best_introns_hisat50.bed', path + 'best_introns_hisat_50+0.bed', 0)
-
-
-if __name__ == "__main__":
-    main()
