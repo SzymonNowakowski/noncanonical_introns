@@ -1,8 +1,17 @@
 from intron_comparison import process_file
 from introns import Intron
-from math import floor
+from statistics import median
 from itertools import chain
 from collections import defaultdict
+
+
+def _line_to_intron(line):
+    """RegTools junctions to Intron."""
+    scaffold = line[0]
+    start = line[1] + int(line[-2].split(',')[0])
+    end = line[2] - int(line[-2].split(',')[1])
+    score = line[4]
+    return Intron(scaffold, start, end, support=score)
 
 
 def junctions_to_introns(file_in, file_out):
@@ -10,21 +19,13 @@ def junctions_to_introns(file_in, file_out):
     Take junctions created by RegTools and save to .bed file only the location and support of introns. Also sort
     the introns by scaffold and then by start for easier analyses later.
 
-    :param file_in: (str) Path to the RegTools in file.
+    :param file_in: (str) Path to the RegTools file.
     :param file_out: (str) Path to the out file.
     """
-    introns_dict = {}
+    introns_dict = defaultdict(list)
     for line in process_file(file_in):
-        scaffold = line[0]
-        start = line[1] + int(line[-2].split(',')[0])
-        end = line[2] - int(line[-2].split(',')[1])
-        score = line[4]
-        i = Intron(scaffold, start, end, support=score)
-
-        if scaffold in introns_dict.keys():
-            introns_dict[scaffold].append(i)
-        else:
-            introns_dict[scaffold] = [i]
+        i = _line_to_intron(line)
+        introns_dict[i.scaffold].append(i)
 
     with open(file_out, 'w') as f_out:
         for scaff in introns_dict.keys():
@@ -43,10 +44,6 @@ def intron_stats(file):
         introns.append(i)
     print(f'Number of introns: {len(introns)}')
     print(f'Mean support: {sum([i.support for i in introns]) / len(introns)}')
-
-    def median(l):
-        l.sort()
-        return l[floor(len(l) / 2)]
     print(f'Median support: {median([intron.support for intron in introns])}')
 
 
@@ -89,18 +86,18 @@ def choose_best_introns(file_in, file_out, cutoff):
             chrom, start, end, score = line
             i = Intron(chrom, start, end, support=score)
             all_introns[chrom].append(i)
-            # we only consider introns with high enough support
+            # only consider introns with high enough support
             if score < cutoff:
                 continue
 
             if chrom == chrom_old:
                 if start < end_old:
-                    # we are still in the same intron
+                    # still in the same intron
                     if score > score_old:
-                        # we want one best intron in each position
+                        # one best intron in each position
                         start_old, end_old, score_old = start, end, score
                 else:
-                    # we are in a new intron, so we need to write down the old one
+                    # in a new intron, so the old one has to be written down
                     if not start_old - end_old == 0:
                         write_junction()
                     start_old, end_old, score_old = start, end, score
@@ -144,7 +141,7 @@ def introns_for_seq(file_in, file_out, margin):
 
 
 def introns_for_seq2(file_in, file_out_start, file_out_end, margin1, margin2):
-    """Create a file with introns elongated by a margin to extract sequences with parts of neighbouring exons."""
+    """Create two files with extracted fragments of margins from both sides of the itron."""
     with open(file_out_start, 'w') as f_out_start:
         with open(file_out_end, 'w') as f_out_end:
             for line in process_file(file_in):
@@ -155,6 +152,7 @@ def introns_for_seq2(file_in, file_out_start, file_out_end, margin1, margin2):
                 new_line2 = '\t'.join([str(x) for x in [line[0], line[2] - margin2, line[2] + margin1]])
                 f_out_end.write(new_line2)
                 f_out_end.write('\n')
+
 
 def main():
     m = 20

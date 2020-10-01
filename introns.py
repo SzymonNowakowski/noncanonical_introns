@@ -29,7 +29,8 @@ class Intron:
     :param end: (int) Location of the fist base of the next exon.
     :param strand (str): Optional, defines the strand on which intron is located. Must be either + or -.
     :param support: (int) Optional, how many reads support the intron.
-    :param margin: (int) Optional, how much of exons sequences is included on both ends.
+    :param margin_left: (int) Optional, how many nucleotides from the preceding exon are included.
+    :param margin_right: (int) Optional, how many nucleotides from the following exon are included.
     :param sequence: (str) Optional, genomic sequence of the intron.
     """
     scaffold = str
@@ -37,7 +38,8 @@ class Intron:
     end = int
     strand = str
     support = int
-    margin = int
+    margin_left = int
+    margin_right = int
     sequence = str
 
     def __init__(self, scaffold, start, end, strand=None, support=None, margin_left=0, margin_right=0, sequence=None):
@@ -62,7 +64,10 @@ class Intron:
         self.variations = []
 
     def __repr__(self):
-        return ' '.join([self.scaffold, str(self.start), str(self.end), str(self.support)])
+        if self.support:
+            return ' '.join([self.scaffold, str(self.start), str(self.end), str(self.support)])
+        else:
+            return ' '.join([self.scaffold, str(self.start), str(self.end)])
 
     def __str__(self):
         return self.__repr__()
