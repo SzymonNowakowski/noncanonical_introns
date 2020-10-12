@@ -51,37 +51,3 @@ def forest(validation, x, types):
         y_pred = clf.predict(x_test)
         acc.append(metrics.accuracy_score(y_test, y_pred))
     return sum(acc) / len(acc)
-
-
-def main():
-    file = '/home/rozycka/sequences_euglena/good_introns50+3.fasta'
-    # file = '/home/julia/Documents/licencjat/good_introns50+3.fasta'
-    with open(file, "r") as handle:
-        sequences = list(SimpleFastaParser(handle))
-
-    types = []
-    for s in sequences:
-        left_anchor = s[1][3:5]
-        right_anchor = s[1][-5:-3]
-        if left_anchor == 'GT' and right_anchor == 'AG' or left_anchor == 'CT' and right_anchor == 'AC':
-            types.append(0)
-        else:
-            types.append(1)
-
-    with open('./random_forest_results', 'w') as f_out:
-        for n in range(4, 12):
-            f_out.write('len of ogligonucleotides: ')
-            f_out.write(str(n))
-            f_out.write('\n')
-            for cut in range(2):
-                if cut == 0:
-                    f_out.write('uncut sequences: ')
-                if cut == 1:
-                    f_out.write('conventional splices cut: ')
-                data = preprocess(cut, n, sequences)
-                acc = forest(10, data, types)
-                f_out.write(str(acc))
-
-
-if __name__ == "__main__":
-    main()
