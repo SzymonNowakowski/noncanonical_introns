@@ -49,7 +49,7 @@ def seq_statistics(introns):
         ini_dict.append(oligofreq(intron.sequence, 4))
     result = dict(functools.reduce(operator.add, map(collections.Counter, ini_dict)))
     print([(j, v) for j, v in sorted(result.items(), key=lambda item: item[1], reverse=True)][:10])
-    return dict([(j, v) for j, v in sorted(result.items(), key=lambda item: item[1], reverse=True)][:10])
+#     return dict([(j, v) for j, v in sorted(result.items(), key=lambda item: item[1], reverse=True)][:10])
 
     def extract_junction(intron):
         return intron.sequence[intron.margin_left:intron.margin_left + 2] +\

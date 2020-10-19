@@ -30,6 +30,7 @@ def extract_introns_from_gtf(file, file_out):
     for line in process_file(file):
         if line[2] == 'transcript':
             new_gene = True
+            gene = line[9]
         elif line[2] == 'exon':
             if new_gene:
                 new_gene = False
@@ -38,7 +39,7 @@ def extract_introns_from_gtf(file, file_out):
                 end = line[3] - 1
                 scaffold = line[0]
                 sign = line[6]
-                i = Intron(scaffold, start, end, sign)
+                i = Intron(scaffold, start, end, gene=gene, strand=sign)
                 if ' '.join([scaffold, str(start), str(end)]) not in unique:
                     unique.add(' '.join([scaffold, str(start), str(end)]))
                     introns_p.append(i)
@@ -46,14 +47,14 @@ def extract_introns_from_gtf(file, file_out):
 
     with open(file_out, 'w') as f_out:
         for intron in introns_p:
-            f_out.write(str(intron))
+            f_out.write('\t'.join([str(x) for x in [intron.scaffold, intron.start, intron.end, intron.gene, intron.strand]]))
             f_out.write('\n')
 
 
 def intron_dict(file):
     my_introns = defaultdict(list)
     for line in process_file(file):
-        intron = intron_from_line(line)
+        intron = Intron(line[0], line[1], line[2], gene=line[3], strand=line[4])
         my_introns[intron.scaffold].append(intron)
     return my_introns
 
@@ -72,6 +73,7 @@ def compare_introns(file, introns2, file_out):
         try:
             for i in introns2[intron.scaffold]:
                 if intron.intersect(i):
+                    intron.gene = i.gene
                     intron_pairs.append([intron, i])
                     pairing = True
 

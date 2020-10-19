@@ -42,15 +42,15 @@ def intron_stats(file):
     for line in process_file(file):
         i = Intron(line[0], line[1], line[2], support=line[3])
         introns.append(i)
-    print(f'Number of introns: {len(introns)}')
-    print(f'Mean support: {sum([i.support for i in introns]) / len(introns)}')
-    print(f'Median support: {median([intron.support for intron in introns])}')
+    print('Number of introns:0', len(introns))
+    print('Mean support: ', sum([i.support for i in introns]) / len(introns))
+    print('Median support: ', median([intron.support for intron in introns]))
 
 
 def junctions_to_stats(program, m, path):
     print('Program: ', program)
-    file_in = f'{path}junctions_{program}_m{m}.bed'
-    file_out = f'{path}good_junctions_{program}.bed'
+    file_in = path + 'junctions_' + program + '_m' + m + '.bed'
+    file_out = path + 'good_junctions_' + program + '.bed'
     junctions_to_introns(file_in, file_out)
     intron_stats(file_out)
 

@@ -27,6 +27,7 @@ class Intron:
     :param scaffold: (str) Scaffold or chromosome on which the intron is located.
     :param start: (int) Location of the first base of the intron.
     :param end: (int) Location of the fist base of the next exon.
+    :param gene: (str) Gene in which the intron is located.
     :param strand (str): Optional, defines the strand on which intron is located. Must be either + or -.
     :param support: (int) Optional, how many reads support the intron.
     :param margin_left: (int) Optional, how many nucleotides from the preceding exon are included.
@@ -36,13 +37,14 @@ class Intron:
     scaffold = str
     start = int
     end = int
+    gene = str
     strand = str
     support = int
     margin_left = int
     margin_right = int
     sequence = str
 
-    def __init__(self, scaffold, start, end, strand=None, support=None, margin_left=0, margin_right=0, sequence=None):
+    def __init__(self, scaffold, start, end, gene=None, strand=None, support=None, margin_left=0, margin_right=0, sequence=None):
         self.scaffold = scaffold
         if start < end:
             self.start = start
@@ -50,6 +52,7 @@ class Intron:
         else:
             self.end = start
             self.start = end
+        self.gene = gene
         if strand and strand not in ['+', '-']:
             raise ValueError('Strand can only be + or -')
         else:
@@ -167,9 +170,9 @@ class Intron:
         """ Check if the intron junctions suggest the intron is conventional."""
         left_anchor = self.sequence[self.margin_left:self.margin_left + 2]
         right_anchor = self.sequence[-self.margin_right - 2:-self.margin_right]
-        if left_anchor == 'GT' and right_anchor == 'AG':
+        if left_anchor in ['GT', 'GC'] and right_anchor == 'AG':
             return True
-        elif left_anchor == 'CT' and right_anchor == 'AC':
+        elif left_anchor == 'CT' and right_anchor in ['AC', 'GC']:
             return True
         else:
             return False
