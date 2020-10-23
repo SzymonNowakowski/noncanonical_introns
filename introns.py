@@ -19,8 +19,29 @@ def auto_attr_check(cls):
     return type(cls)(cls.__name__, cls.__bases__, new_dct)
 
 
+class GenomicSequence:
+    def __init__(self, scaffold, start, end, sequence=None, strand=None):
+        self.scaffold = scaffold
+        if start < end:
+            self.start = start
+            self.end = end
+        else:
+            self.end = start
+            self.start = end
+        if sequence and len(sequence) != self.length():
+            raise ValueError('Incorrect sequence length.')
+        self.sequence = sequence
+        if strand and strand not in ['+', '-']:
+            raise ValueError('Strand can only be + or -')
+        else:
+            self.strand = strand
+
+    def length(self):
+        return self.end - self.start
+
+
 @auto_attr_check
-class Intron:
+class Intron(GenomicSequence):
     """
     This is a class for working with biological introns.
 
@@ -44,26 +65,12 @@ class Intron:
     margin_right = int
     sequence = str
 
-    def __init__(self, scaffold, start, end, gene=None, strand=None, support=None, margin_left=0, margin_right=0, sequence=None):
-        self.scaffold = scaffold
-        if start < end:
-            self.start = start
-            self.end = end
-        else:
-            self.end = start
-            self.start = end
+    def __init__(self, scaffold, start, end, sequence=None, strand=None, gene=None, support=None, margin_left=0, margin_right=0):
+        GenomicSequence.__init__(self, scaffold, start, end, sequence=sequence, strand=strand)
         self.gene = gene
-        if strand and strand not in ['+', '-']:
-            raise ValueError('Strand can only be + or -')
-        else:
-            self.strand = strand
         self.support = support
         self.margin_left = margin_left
         self.margin_right = margin_right
-        if sequence and len(sequence) != self.length():
-            raise ValueError('The length of the sequence does not correspond to the intron length.')
-        else:
-            self.sequence = sequence
         self.variations = []
 
     def __repr__(self):
@@ -110,10 +117,6 @@ class Intron:
             return 1
         else:
             return 0
-
-    def length(self):
-        """Return length of the intron."""
-        return self.end - self.start
 
     def movable_boundary(self):
         """
@@ -200,3 +203,21 @@ class Intron:
                     if son.check_unconventional():
                         return True
             return False
+
+
+class Exon(GenomicSequence):
+    def __init__(self, scaffold, start, end, sequence='', strand=''):
+        GenomicSequence.__init__(self, scaffold, start, end, sequence=sequence, strand=strand)
+
+
+class Transcript(GenomicSequence):
+    def __init__(self, scaffold, start, end, sequence='', strand=''):
+        GenomicSequence.__init__(self, scaffold, start, end, sequence=sequence, strand=strand)
+
+
+class Gene(GenomicSequence):
+    def __init__(self, scaffold, start, end, sequence='', strand='', transcript='', exons=[], introns=[]):
+        GenomicSequence.__init__(self, scaffold, start, end, sequence=sequence, strand=strand)
+        self.transcript = transcript
+        self.exons = exons
+        self.intron = intron
