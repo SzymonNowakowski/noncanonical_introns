@@ -1,3 +1,6 @@
+from collections import defaultdict
+
+
 def getter_setter_gen(name, type_):
     def getter(self):
         return getattr(self, "__" + name)
@@ -31,13 +34,19 @@ class GenomicSequence:
         if sequence and len(sequence) != self.length():
             raise ValueError('Incorrect sequence length.')
         self.sequence = sequence
-        if strand and strand not in ['+', '-']:
-            raise ValueError('Strand can only be + or -')
+        if strand and strand not in ['+', '-', '.']:
+            raise ValueError('Strand can only be +, - or .')
         else:
             self.strand = strand
 
     def length(self):
         return self.end - self.start
+    
+    def __repr__(self):
+        return ' '.join([self.scaffold, str(self.start), str(self.end)])
+        
+    def __str__(self):
+        return self.__repr__()
 
 
 @auto_attr_check
@@ -47,7 +56,7 @@ class Intron(GenomicSequence):
 
     :param scaffold: (str) Scaffold or chromosome on which the intron is located.
     :param start: (int) Location of the first base of the intron.
-    :param end: (int) Location of the fist base of the next exon.
+    :param end: (int) Location of the first base of the next exon.
     :param gene: (str) Gene in which the intron is located.
     :param strand (str): Optional, defines the strand on which intron is located. Must be either + or -.
     :param support: (int) Optional, how many reads support the intron.
@@ -72,15 +81,6 @@ class Intron(GenomicSequence):
         self.margin_left = margin_left
         self.margin_right = margin_right
         self.variations = []
-
-    def __repr__(self):
-        if self.support:
-            return ' '.join([self.scaffold, str(self.start), str(self.end), str(self.support)])
-        else:
-            return ' '.join([self.scaffold, str(self.start), str(self.end)])
-
-    def __str__(self):
-        return self.__repr__()
 
     def intersect(self, intron):
         """
@@ -210,14 +210,101 @@ class Exon(GenomicSequence):
         GenomicSequence.__init__(self, scaffold, start, end, sequence=sequence, strand=strand)
 
 
-class Transcript(GenomicSequence):
+class Transcript():
     def __init__(self, scaffold, start, end, sequence='', strand=''):
-        GenomicSequence.__init__(self, scaffold, start, end, sequence=sequence, strand=strand)
+        self.scaffold = scaffold
+        self.start = start
+        self.end = end
+        self.sequence = sequence
+        self.strand = strand
 
 
 class Gene(GenomicSequence):
-    def __init__(self, scaffold, start, end, sequence='', strand='', transcript='', exons=[], introns=[]):
+    def __init__(self, scaffold, start, end, sequence='', strand='', transcript='', exons=[], introns=[], name=''):
         GenomicSequence.__init__(self, scaffold, start, end, sequence=sequence, strand=strand)
         self.transcript = transcript
         self.exons = exons
-        self.intron = intron
+        self.introns = introns
+        self.name = name
+    
+    def append_exons(self, exon):
+        self.exons.append(exon)
+    
+    def append_introns(self, intron):
+        self.introns.append(intron)
+    
+    def extract_sequence(self, genome):
+        sequence = genome[self.scaffold][self.start:self.end]
+        if self.strand == '-':
+            sequence = reverse_complement(sequence)
+            self.sequence = sequence
+        else:
+            self.sequence = sequence
+        
+        for exon in self.exons:
+            exon.sequence = self.sequence[exon.start - self.start:exon.end - self.start]
+        
+        transcript = ''.join([exon.sequence for exon in self.exons])
+        self.transcript = Transcript(self.scaffold, self.start, self.end, strand=self.strand, sequence=transcript)
+        
+    def create_introns(self):
+        if len(self.exons) < 1:
+            raise ValueError('No exons specified.')
+        else:
+            self.introns = []
+            for exon in self.exons:
+                end = exon.start - 1
+                try:
+                    self.append_introns(Intron(self.scaffold, start, end))
+                except NameError:
+                    pass
+                start = exon.end
+                
+        for intron in self.introns:
+            intron.sequence = self.sequence[intron.start - self.start:intron.end - self.start]
+
+def process_file(file_path):
+    try:
+        with open(file_path) as f:
+            while True:
+                line = f.readline()
+                if not line:
+                    break
+                yield [int(x) if x.isnumeric() else x for x in line.split()]
+    except (IOError, OSError):
+        print("Error opening / processing file")
+        
+def read_genome(file):
+    genome = defaultdict(str)
+    with open(file) as f:
+        for line in f.readlines():
+            if line[0] == '>':
+                gene = line.strip()[1:]
+            else:
+                genome[gene] += line.strip()
+    return genome
+
+def read_genes(file, genome):
+    genes = []
+    for line in process_file(file):
+        if line[0] == '#':
+            continue
+        if line[2] == 'transcript':
+            try:
+                genes.append(gene)
+            except NameError:
+                pass
+            gene = Gene(line[0], line[3], line[4], name=line[9], strand=line[6], exons=[])
+        elif line[2] == 'exon':
+            exon = Exon(line[0], line[3], line[4], strand=line[6])
+            gene.append_exons(exon)
+    return genes
+
+def complement(seq):
+    complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'} 
+    letters = [complement[base] for base in seq] 
+    return ''.join(letters)
+    
+def reverse_complement(seq):
+    return complement(seq[::-1])
+    
