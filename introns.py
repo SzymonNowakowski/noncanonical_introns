@@ -25,12 +25,8 @@ def auto_attr_check(cls):
 class GenomicSequence:
     def __init__(self, scaffold, start, end, sequence=None, strand=None):
         self.scaffold = scaffold
-        if start < end:
-            self.start = start
-            self.end = end
-        else:
-            self.end = start
-            self.start = end
+        self.start = start
+        self.end = end
         if sequence and len(sequence) != self.length():
             raise ValueError('Incorrect sequence length.')
         self.sequence = sequence
@@ -74,7 +70,8 @@ class Intron(GenomicSequence):
     margin_right = int
     sequence = str
 
-    def __init__(self, scaffold, start, end, sequence=None, strand=None, gene=None, support=None, margin_left=0, margin_right=0):
+    def __init__(self, scaffold, start, end, sequence=None, strand=None, gene=None, support=None, margin_left=0,
+                 margin_right=0):
         GenomicSequence.__init__(self, scaffold, start, end, sequence=sequence, strand=strand)
         self.gene = gene
         self.support = support
@@ -82,22 +79,22 @@ class Intron(GenomicSequence):
         self.margin_right = margin_right
         self.variations = []
 
-    def intersect(self, intron):
+    def intersect(self, other_intron):
         """
         Checks if two introns cover partially the same area.
 
-        :param intron: (Intron) Intron with which intersection of self is checked.
+        :param other_intron: (Intron) Intron with which intersection of self is checked.
         :return: Bool: True if introns share at least one base, False otherwise.
         """
-        if not isinstance(intron, Intron):
+        if not isinstance(other_intron, Intron):
             raise ValueError('Both introns must be instances of Intron class')
 
         else:
-            if self.scaffold != intron.scaffold:
+            if self.scaffold != other_intron.scaffold:
                 raise ValueError('Introns on different scaffold cannot intersect.')
-            if (self.start in range(intron.start, intron.end))\
-                    or (self.end in range(intron.start, intron.end))\
-                    or (self.start < intron.start and self.end > intron.end):
+            if (self.start in range(other_intron.start, other_intron.end))\
+                    or (self.end in range(other_intron.start, other_intron.end))\
+                    or (self.start < other_intron.start and self.end > other_intron.end):
                 return True
             else:
                 return False
@@ -119,6 +116,7 @@ class Intron(GenomicSequence):
             return 0
 
     def movable_boundary(self):
+        # moglem zepsuc
         """
         Check if there are repeats on the intron junctions so the intron position could be shifted without changing
         transcript sequence. If there are, add new possible introns to self.variations.
@@ -149,7 +147,7 @@ class Intron(GenomicSequence):
                     new_left_margin, new_right_margin = self.margin_left - i, self.margin_right + i
                 else:
                     new_left_margin, new_right_margin = self.margin_left - (i - 1), self.margin_right + (i - 1)
-                new_variation = Intron(self.scaffold, self.start, self.end, margin_left=new_left_margin,\
+                new_variation = Intron(self.scaffold, self.start, self.end, margin_left=new_left_margin,
                                        margin_right=new_right_margin, sequence=self.sequence)
                 self.variations.append(new_variation)
             else:
@@ -220,13 +218,15 @@ class Transcript():
 
 
 class Gene(GenomicSequence):
-    def __init__(self, scaffold, start, end, sequence='', strand='', transcript='', exons=[], introns=[], name=''):
+    def __init__(self, scaffold, start, end, sequence='', strand='', transcript='', exons=None, introns=None, name=''):
+        # if strand == '-':
+        #     start, end = end, start
         GenomicSequence.__init__(self, scaffold, start, end, sequence=sequence, strand=strand)
         self.transcript = transcript
-        self.exons = exons
-        self.introns = introns
+        self.exons = [] if exons is None else exons
+        self.introns = [] if introns is None else introns
         self.name = name
-    
+
     def append_exons(self, exon):
         self.exons.append(exon)
     
@@ -234,34 +234,59 @@ class Gene(GenomicSequence):
         self.introns.append(intron)
     
     def extract_sequence(self, genome):
+        # elif self.strand == '-':
+        #     sequence = genome[self.scaffold][self.end:self.start]
+        # else:
+        #     raise Exception('cojest')
         sequence = genome[self.scaffold][self.start:self.end]
         if self.strand == '-':
             sequence = reverse_complement(sequence)
             self.sequence = sequence
         else:
             self.sequence = sequence
-        
         for exon in self.exons:
-            exon.sequence = self.sequence[exon.start - self.start:exon.end - self.start]
-        
-        transcript = ''.join([exon.sequence for exon in self.exons])
-        self.transcript = Transcript(self.scaffold, self.start, self.end, strand=self.strand, sequence=transcript)
-        
+            if self.strand == '+':
+                exon.sequence = self.sequence[exon.start - self.start:exon.end - self.start]
+            elif self.strand == '-':
+                exon.sequence = self.sequence[- exon.end + self.end:- exon.start + self.end]
+            else:
+                raise Exception('co jest')
+        transcript_sequence = self.get_transcript_sequence()
+        self.transcript = Transcript(self.scaffold, self.start, self.end, strand=self.strand,
+                                     sequence=transcript_sequence)
+
+    def get_transcript_sequence(self):
+        exons_seqs = []
+        for exon in self.exons:
+            exons_seqs.append((exon.sequence, exon.start))
+        if self.strand == '+':
+            exons_seqs.sort(key=lambda tup: tup[1])
+        elif self.strand == '-':
+            exons_seqs.sort(key=lambda tup: tup[1], reverse=True)
+        sequence = ''.join([exon_seq[0] for exon_seq in exons_seqs])
+        return sequence
+
     def create_introns(self):
         if len(self.exons) < 1:
             raise ValueError('No exons specified.')
         else:
             self.introns = []
             for exon in self.exons:
-                end = exon.start - 1
-                try:
+                self.end = exon.start - 1
+                if self.end:
                     self.append_introns(Intron(self.scaffold, start, end))
-                except NameError:
-                    pass
+                    # elif self.strand == '-':
+                    #     self.append_introns(Intron(self.scaffold, end, start))
+                    # else:
+                    #     raise Exception('co jest')
                 start = exon.end
                 
         for intron in self.introns:
-            intron.sequence = self.sequence[intron.start - self.start:intron.end - self.start]
+            if self.strand == '-':
+                intron.sequence = self.sequence[intron.start - self.start:intron.end - self.start]
+            elif self.strand == '+':
+                intron.sequence = self.sequence[- intron.end + self.end:- intron.start + self.end]
+
 
 def process_file(file_path):
     try:
@@ -271,9 +296,11 @@ def process_file(file_path):
                 if not line:
                     break
                 yield [int(x) if x.isnumeric() else x for x in line.split()]
-    except (IOError, OSError):
+    except (IOError, OSError) as exc:
         print("Error opening / processing file")
-        
+        raise exc
+
+
 def read_genome(file):
     genome = defaultdict(str)
     with open(file) as f:
@@ -284,27 +311,29 @@ def read_genome(file):
                 genome[gene] += line.strip()
     return genome
 
-def read_genes(file, genome):
+
+def read_genes(file):
     genes = []
+    gene, exon = None, None
     for line in process_file(file):
         if line[0] == '#':
             continue
         if line[2] == 'transcript':
-            try:
+            if gene:
                 genes.append(gene)
-            except NameError:
-                pass
             gene = Gene(line[0], line[3], line[4], name=line[9], strand=line[6], exons=[])
         elif line[2] == 'exon':
             exon = Exon(line[0], line[3], line[4], strand=line[6])
             gene.append_exons(exon)
     return genes
 
+
 def complement(seq):
     complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'} 
     letters = [complement[base] for base in seq] 
     return ''.join(letters)
-    
+
+
 def reverse_complement(seq):
     return complement(seq[::-1])
-    
+
