@@ -27,6 +27,7 @@ def intron_from_line(line):
 def extract_introns_from_gtf(file, file_out):
     introns_p = []
     unique = set()
+    gene, new_gene, start, end = None, False, 0, 0
     for line in process_file(file):
         if line[2] == 'transcript':
             new_gene = True
@@ -39,6 +40,8 @@ def extract_introns_from_gtf(file, file_out):
                 end = line[3] - 1
                 scaffold = line[0]
                 sign = line[6]
+                if not gene:
+                    raise Exception()
                 i = Intron(scaffold, start, end, gene=gene, strand=sign)
                 if ' '.join([scaffold, str(start), str(end)]) not in unique:
                     unique.add(' '.join([scaffold, str(start), str(end)]))

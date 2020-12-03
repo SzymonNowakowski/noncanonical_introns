@@ -246,11 +246,14 @@ class Gene(GenomicSequence):
             self.sequence = sequence
         for exon in self.exons:
             if self.strand == '+':
+                print(str(exon),  exon.start, self.start, exon.end, self.start)
                 exon.sequence = self.sequence[exon.start - self.start:exon.end - self.start]
             elif self.strand == '-':
                 exon.sequence = self.sequence[- exon.end + self.end:- exon.start + self.end]
+                print(str(exon), exon.end, self.end, exon.start, self.end)
             else:
-                raise Exception('co jest')
+                print(self.name, exon.scaffold, exon.start, exon.end)
+                #raise Exception('co jest')
         transcript_sequence = self.get_transcript_sequence()
         self.transcript = Transcript(self.scaffold, self.start, self.end, strand=self.strand,
                                      sequence=transcript_sequence)
@@ -271,21 +274,32 @@ class Gene(GenomicSequence):
             raise ValueError('No exons specified.')
         else:
             self.introns = []
+            start, end = 0, 0
             for exon in self.exons:
-                self.end = exon.start - 1
-                if self.end:
-                    self.append_introns(Intron(self.scaffold, start, end))
+                end = exon.start - 1
+                if start:
+                    if self.strand == '+':
+                        sequence = self.sequence[start - self.start:end - self.start]
+                    elif self.strand == '-':
+                        sequence = self.sequence[- end + self.end: - start + self.end]
+                    self.append_introns(Intron(self.scaffold, start, end, strand=self.strand, sequence=sequence))
                     # elif self.strand == '-':
                     #     self.append_introns(Intron(self.scaffold, end, start))
                     # else:
                     #     raise Exception('co jest')
                 start = exon.end
-                
-        for intron in self.introns:
-            if self.strand == '-':
-                intron.sequence = self.sequence[intron.start - self.start:intron.end - self.start]
-            elif self.strand == '+':
-                intron.sequence = self.sequence[- intron.end + self.end:- intron.start + self.end]
+        # for intron in self.introns:
+        #     if self.strand == '-':
+        #         print(str(intron), intron.start, self.start, intron.end, self.start, self.strand, intron.strand)
+        #         intron.sequence = self.sequence[intron.start - self.start:intron.end - self.start]
+        #         print(self.sequence)
+        #         print(intron.sequence)
+        #     elif self.strand == '+':
+        #         print(str(intron), intron.end, self.end, intron.start, self.end, self.strand, intron.strand)
+        #         intron.sequence = self.sequence[- intron.end + self.end:- intron.start + self.end]
+        #         print(self.sequence)
+        #         print(intron.sequence)
+
 
 
 def process_file(file_path):
