@@ -246,11 +246,9 @@ class Gene(GenomicSequence):
             self.sequence = sequence
         for exon in self.exons:
             if self.strand == '+':
-                print(str(exon),  exon.start, self.start, exon.end, self.start)
                 exon.sequence = self.sequence[exon.start - self.start:exon.end - self.start]
             elif self.strand == '-':
                 exon.sequence = self.sequence[- exon.end + self.end:- exon.start + self.end]
-                print(str(exon), exon.end, self.end, exon.start, self.end)
             else:
                 print(self.name, exon.scaffold, exon.start, exon.end)
                 #raise Exception('co jest')
