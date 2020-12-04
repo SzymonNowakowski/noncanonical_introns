@@ -301,7 +301,6 @@ class Gene(GenomicSequence):
         #         print(intron.sequence)
 
 
-
 def process_file(file_path):
     try:
         with open(file_path) as f:
@@ -335,9 +334,9 @@ def read_genes(file):
         if line[2] == 'transcript':
             if gene:
                 genes.append(gene)
-            gene = Gene(line[0], line[3], line[4], name=line[9], strand=line[6], exons=[])
+            gene = Gene(line[0], line[3] - 1, line[4], name=line[9], strand=line[6], exons=[])
         elif line[2] == 'exon':
-            exon = Exon(line[0], line[3], line[4], strand=line[6])
+            exon = Exon(line[0], line[3] - 1, line[4], strand=line[6])
             gene.append_exons(exon)
     return genes
 
