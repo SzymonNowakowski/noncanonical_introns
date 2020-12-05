@@ -218,7 +218,7 @@ class Transcript():
 
 
 class Gene(GenomicSequence):
-    def __init__(self, scaffold, start, end, sequence='', strand='', transcript='', exons=None, introns=None, name=''):
+    def __init__(self, scaffold, start, end, sequence='', strand='', transcript=None, exons=[], introns=[], name=''):
         # if strand == '-':
         #     start, end = end, start
         GenomicSequence.__init__(self, scaffold, start, end, sequence=sequence, strand=strand)
@@ -240,8 +240,7 @@ class Gene(GenomicSequence):
         #     raise Exception('cojest')
         sequence = genome[self.scaffold][self.start:self.end]
         if self.strand == '-':
-            sequence = reverse_complement(sequence)
-            self.sequence = sequence
+            self.sequence = reverse_complement(sequence)
         else:
             self.sequence = sequence
         for exon in self.exons:
@@ -324,15 +323,15 @@ def read_genome(file):
 
 
 def read_genes(file):
-    genes = []
+    genes = {}
     gene, exon = None, None
     for line in process_file(file):
         if line[0] == '#':
             continue
         if line[2] == 'transcript':
             if gene:
-                genes.append(gene)
-            gene = Gene(line[0], line[3] - 1, line[4], name=line[9], strand=line[6], exons=[])
+                genes[gene.name] = gene
+            gene = Gene(line[0], line[3] - 1, line[4], name=line[11].strip('";'), strand=line[6], exons=[])
         elif line[2] == 'exon':
             exon = Exon(line[0], line[3] - 1, line[4], strand=line[6])
             gene.append_exons(exon)
