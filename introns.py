@@ -250,7 +250,7 @@ class Gene(GenomicSequence):
                 exon.sequence = self.sequence[- exon.end + self.end:- exon.start + self.end]
             else:
                 print(self.name, exon.scaffold, exon.start, exon.end)
-                #raise Exception('co jest')
+                # raise Exception('co jest')
         transcript_sequence = self.get_transcript_sequence()
         self.transcript = Transcript(self.scaffold, self.start, self.end, strand=self.strand,
                                      sequence=transcript_sequence)
@@ -269,13 +269,22 @@ class Gene(GenomicSequence):
     def get_transcript_with_gaps_sequence(self):
         to_be_joined = []
         start, end = None, None
-        exons_sorted = sorted(self.exons, key=lambda obj: obj.start, reverse= True if self.strand == '-' else False)
-        for exon in exons_sorted:
-            start = exon.start
-            if end:
-                to_be_joined.append((''.join(['-' for i in range(end - start)])))
-            to_be_joined.append(exon.sequence)
-            end = exon.end
+        reverse = True if self.strand == '-' else False
+        exons_sorted = sorted(self.exons, key=lambda obj: obj.start, reverse=reverse)
+        if not reverse:
+            for exon in exons_sorted:
+                start = exon.start
+                if end:
+                    to_be_joined.append((''.join(['-' for i in range(end - start)])))
+                to_be_joined.append(exon.sequence)
+                end = exon.end
+        else:
+            for exon in exons_sorted:
+                start = exon.end
+                if end:
+                    to_be_joined.append((''.join(['-' for i in range(end - start)])))
+                to_be_joined.append(exon.sequence)
+                end = exon.start
         sequence = ''.join(to_be_joined)
         return sequence
 
