@@ -218,7 +218,7 @@ class Transcript():
 
 
 class Gene(GenomicSequence):
-    def __init__(self, scaffold, start, end, sequence='', strand='', transcript=None, exons=[], introns=[], name=''):
+    def __init__(self, scaffold, start, end, sequence='', strand='', transcript=None, exons=None, introns=None, name=''):
         # if strand == '-':
         #     start, end = end, start
         GenomicSequence.__init__(self, scaffold, start, end, sequence=sequence, strand=strand)
@@ -264,6 +264,19 @@ class Gene(GenomicSequence):
         elif self.strand == '-':
             exons_seqs.sort(key=lambda tup: tup[1], reverse=True)
         sequence = ''.join([exon_seq[0] for exon_seq in exons_seqs])
+        return sequence
+
+    def get_transcript_with_gaps_sequence(self):
+        to_be_joined = []
+        start, end = None, None
+        exons_sorted = sorted(self.exons, key=lambda obj: obj.start, reverse= True if self.strand == '-' else False)
+        for exon in exons_sorted:
+            start = exon.start
+            if end:
+                to_be_joined.append((''.join(['-' for i in range(end - start)])))
+            to_be_joined.append(exon.sequence)
+            end = exon.end
+        sequence = ''.join(to_be_joined)
         return sequence
 
     def create_introns(self):
