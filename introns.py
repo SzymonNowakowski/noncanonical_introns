@@ -226,6 +226,7 @@ class Gene(GenomicSequence):
         self.exons = [] if exons is None else exons
         self.introns = [] if introns is None else introns
         self.name = name
+        self.expanded_sequence = ''
 
     def append_exons(self, exon):
         self.exons.append(exon)
@@ -239,10 +240,13 @@ class Gene(GenomicSequence):
         # else:
         #     raise Exception('cojest')
         sequence = genome[self.scaffold][self.start:self.end]
+        expanded_sequence = self.get_expanded_sequence(genome)
         if self.strand == '-':
             self.sequence = reverse_complement(sequence)
+            self.expanded_sequence = reverse_complement(expanded_sequence)
         else:
             self.sequence = sequence
+            self.expanded_sequence = expanded_sequence
         for exon in self.exons:
             if self.strand == '+':
                 exon.sequence = self.sequence[exon.start - self.start:exon.end - self.start]
@@ -254,6 +258,12 @@ class Gene(GenomicSequence):
         transcript_sequence = self.get_transcript_sequence()
         self.transcript = Transcript(self.scaffold, self.start, self.end, strand=self.strand,
                                      sequence=transcript_sequence)
+
+    def get_expanded_sequence(self, genome):
+        start = max(0, self.start - 500)
+        end = min(len(self.scaffold), self.end + 500)
+        expanded_sequence = genome[self.scaffold][start:end]
+        return expanded_sequence
 
     def get_transcript_sequence(self):
         exons_seqs = []
