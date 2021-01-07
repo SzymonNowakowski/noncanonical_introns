@@ -23,8 +23,8 @@ def auto_attr_check(cls):
 
 
 class GenomicSequence:
-    def __init__(self, scaffold, start, end, sequence=None, strand=None):
-        self.scaffold = scaffold
+    def __init__(self, scaffold_name, start, end, sequence=None, strand=None):
+        self.scaffold_name = scaffold_name
         self.start = start
         self.end = end
         if sequence and len(sequence) != self.length():
@@ -39,7 +39,7 @@ class GenomicSequence:
         return self.end - self.start
     
     def __repr__(self):
-        return ' '.join([self.scaffold, str(self.start), str(self.end)])
+        return ' '.join([self.scaffold_name, str(self.start), str(self.end)])
         
     def __str__(self):
         return self.__repr__()
@@ -50,7 +50,7 @@ class Intron(GenomicSequence):
     """
     This is a class for working with biological introns.
 
-    :param scaffold: (str) Scaffold or chromosome on which the intron is located.
+    :param scaffold_name: (str) Name of scaffold or chromosome on which the intron is located.
     :param start: (int) Location of the first base of the intron.
     :param end: (int) Location of the first base of the next exon.
     :param gene: (str) Gene in which the intron is located.
@@ -60,7 +60,7 @@ class Intron(GenomicSequence):
     :param margin_right: (int) Optional, how many nucleotides from the following exon are included.
     :param sequence: (str) Optional, genomic sequence of the intron.
     """
-    scaffold = str
+    scaffold_name = str
     start = int
     end = int
     gene = str
@@ -70,9 +70,9 @@ class Intron(GenomicSequence):
     margin_right = int
     sequence = str
 
-    def __init__(self, scaffold, start, end, sequence=None, strand=None, gene=None, support=None, margin_left=0,
+    def __init__(self, scaffold_name, start, end, sequence=None, strand=None, gene=None, support=None, margin_left=0,
                  margin_right=0):
-        GenomicSequence.__init__(self, scaffold, start, end, sequence=sequence, strand=strand)
+        GenomicSequence.__init__(self, scaffold_name, start, end, sequence=sequence, strand=strand)
         self.gene = gene
         self.support = support
         self.margin_left = margin_left
@@ -90,7 +90,7 @@ class Intron(GenomicSequence):
             raise ValueError('Both introns must be instances of Intron class')
 
         else:
-            if self.scaffold != other_intron.scaffold:
+            if self.scaffold_name != other_intron.scaffold_name:
                 raise ValueError('Introns on different scaffold cannot intersect.')
             if (self.start in range(other_intron.start, other_intron.end))\
                     or (self.end in range(other_intron.start, other_intron.end))\
@@ -106,7 +106,7 @@ class Intron(GenomicSequence):
         :param intron: (Intron) Intron with which type of intersection with self is checked.
         :return: 2 if the introns are identical, 1 if only either start or end is the same, 0 otherwise.
         """
-        if self.scaffold != intron.scaffold:
+        if self.scaffold_name != intron.scaffold_name:
             raise ValueError('Introns do not intersect at all.')
         if self.start == intron.start and self.end == intron.end:
             return 2
@@ -147,7 +147,7 @@ class Intron(GenomicSequence):
                     new_left_margin, new_right_margin = self.margin_left - i, self.margin_right + i
                 else:
                     new_left_margin, new_right_margin = self.margin_left - (i - 1), self.margin_right + (i - 1)
-                new_variation = Intron(self.scaffold, self.start, self.end, margin_left=new_left_margin,
+                new_variation = Intron(self.scaffold_name, self.start, self.end, margin_left=new_left_margin,
                                        margin_right=new_right_margin, sequence=self.sequence)
                 self.variations.append(new_variation)
             else:
@@ -204,13 +204,13 @@ class Intron(GenomicSequence):
 
 
 class Exon(GenomicSequence):
-    def __init__(self, scaffold, start, end, sequence='', strand=''):
-        GenomicSequence.__init__(self, scaffold, start, end, sequence=sequence, strand=strand)
+    def __init__(self, scaffold_name, start, end, sequence='', strand=''):
+        GenomicSequence.__init__(self, scaffold_name, start, end, sequence=sequence, strand=strand)
 
 
 class Transcript():
-    def __init__(self, scaffold, start, end, sequence='', strand=''):
-        self.scaffold = scaffold
+    def __init__(self, scaffold_name, start, end, sequence='', strand=''):
+        self.scaffold_name = scaffold_name
         self.start = start
         self.end = end
         self.sequence = sequence
@@ -218,10 +218,10 @@ class Transcript():
 
 
 class Gene(GenomicSequence):
-    def __init__(self, scaffold, start, end, sequence='', strand='', transcript=None, exons=None, introns=None, name=''):
+    def __init__(self, scaffold_name, start, end, sequence='', strand='', transcript=None, exons=None, introns=None, name=''):
         # if strand == '-':
         #     start, end = end, start
-        GenomicSequence.__init__(self, scaffold, start, end, sequence=sequence, strand=strand)
+        GenomicSequence.__init__(self, scaffold_name, start, end, sequence=sequence, strand=strand)
         self.transcript = transcript
         self.exons = [] if exons is None else exons
         self.introns = [] if introns is None else introns
@@ -236,11 +236,12 @@ class Gene(GenomicSequence):
     
     def extract_sequence(self, genome):
         # elif self.strand == '-':
-        #     sequence = genome[self.scaffold][self.end:self.start]
+        #     sequence = genome[self.scaffold_name][self.end:self.start]
         # else:
         #     raise Exception('cojest')
-        sequence = genome[self.scaffold][self.start:self.end]
-        expanded_sequence = self.get_expanded_sequence(genome)
+        scaffold_seq = genome[self.scaffold_name]
+        sequence = scaffold_seq[self.start:self.end]
+        expanded_sequence = self.get_expanded_sequence(scaffold_seq)
         if self.strand == '-':
             self.sequence = reverse_complement(sequence)
             self.expanded_sequence = reverse_complement(expanded_sequence)
@@ -253,16 +254,16 @@ class Gene(GenomicSequence):
             elif self.strand == '-':
                 exon.sequence = self.sequence[- exon.end + self.end:- exon.start + self.end]
             else:
-                print(self.name, exon.scaffold, exon.start, exon.end)
+                print(self.name, exon.scaffold_name, exon.start, exon.end)
                 # raise Exception('co jest')
         transcript_sequence = self.get_transcript_sequence()
-        self.transcript = Transcript(self.scaffold, self.start, self.end, strand=self.strand,
+        self.transcript = Transcript(self.scaffold_name, self.start, self.end, strand=self.strand,
                                      sequence=transcript_sequence)
 
-    def get_expanded_sequence(self, genome):
+    def get_expanded_sequence(self, scaffold_seq):
         start = max(0, self.start - 500)
-        end = min(len(self.scaffold), self.end + 500)
-        expanded_sequence = genome[self.scaffold][start:end]
+        end = min(len(scaffold_seq), self.end + 500)
+        expanded_sequence = scaffold_seq[start:end]
         return expanded_sequence
 
     def get_transcript_sequence(self):
@@ -311,9 +312,9 @@ class Gene(GenomicSequence):
                         sequence = self.sequence[start - self.start:end - self.start]
                     elif self.strand == '-':
                         sequence = self.sequence[- end + self.end: - start + self.end]
-                    self.append_introns(Intron(self.scaffold, start, end, strand=self.strand, sequence=sequence))
+                    self.append_introns(Intron(self.scaffold_name, start, end, strand=self.strand, sequence=sequence))
                     # elif self.strand == '-':
-                    #     self.append_introns(Intron(self.scaffold, end, start))
+                    #     self.append_introns(Intron(self.scaffold_name, end, start))
                     # else:
                     #     raise Exception('co jest')
                 start = exon.end
