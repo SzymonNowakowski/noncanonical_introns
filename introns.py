@@ -378,6 +378,8 @@ def read_genes(file):
         elif line[2] == 'exon':
             exon = Exon(line[0], line[3] - 1, line[4], strand=line[6])
             gene.append_exons(exon)
+    if gene:
+        genes[gene.name] = gene
     return genes
 
 
