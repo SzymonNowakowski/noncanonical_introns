@@ -274,7 +274,7 @@ class Gene(GenomicSequence):
         expansion_right = end - self.end
         return expanded_sequence, expansion_left, expansion_right
 
-    def get_transcript_sequence(self):
+    def get_transcript_sequence(self, expanded = False):
         exons_seqs = []
         for exon in self.exons:
             exons_seqs.append((exon.sequence, exon.start))
@@ -283,7 +283,8 @@ class Gene(GenomicSequence):
         elif self.strand == '-':
             exons_seqs.sort(key=lambda tup: tup[1], reverse=True)
         sequence = ''.join([exon_seq[0] for exon_seq in exons_seqs])
-        sequence = self.expansion_left * '-' + sequence + self.expansion_right * '-'
+        if expanded:
+            sequence = self.expansion_left * '-' + sequence + self.expansion_right * '-'
         return sequence
 
     def get_transcript_with_gaps_sequence(self):
