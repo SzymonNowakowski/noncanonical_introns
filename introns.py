@@ -227,6 +227,8 @@ class Gene(GenomicSequence):
         self.introns = [] if introns is None else introns
         self.name = name
         self.expanded_sequence = ''
+        self.expansion_left = 0
+        self.expansion_right = 0
 
     def append_exons(self, exon):
         self.exons.append(exon)
@@ -241,13 +243,17 @@ class Gene(GenomicSequence):
         #     raise Exception('cojest')
         scaffold_seq = genome[self.scaffold_name]
         sequence = scaffold_seq[self.start:self.end]
-        expanded_sequence = self.get_expanded_sequence(scaffold_seq)
+        expanded_sequence, expansion_left, expansion_right = self.get_expanded_sequence(scaffold_seq)
         if self.strand == '-':
             self.sequence = reverse_complement(sequence)
             self.expanded_sequence = reverse_complement(expanded_sequence)
+            self.expansion_left = expansion_right
+            self.expansion_right = expansion_left
         else:
             self.sequence = sequence
             self.expanded_sequence = expanded_sequence
+            self.expansion_right = expansion_right
+            self.expansion_left = expansion_left
         for exon in self.exons:
             if self.strand == '+':
                 exon.sequence = self.sequence[exon.start - self.start:exon.end - self.start]
@@ -264,7 +270,9 @@ class Gene(GenomicSequence):
         start = max(0, self.start - 500)
         end = min(len(scaffold_seq), self.end + 500)
         expanded_sequence = scaffold_seq[start:end]
-        return expanded_sequence
+        expansion_left = self.start - start
+        expansion_right = end - self.end
+        return expanded_sequence, expansion_left, expansion_right
 
     def get_transcript_sequence(self):
         exons_seqs = []
@@ -275,6 +283,7 @@ class Gene(GenomicSequence):
         elif self.strand == '-':
             exons_seqs.sort(key=lambda tup: tup[1], reverse=True)
         sequence = ''.join([exon_seq[0] for exon_seq in exons_seqs])
+        sequence = self.expansion_left * '-' + sequence + self.expansion_right * '-'
         return sequence
 
     def get_transcript_with_gaps_sequence(self):
