@@ -384,7 +384,7 @@ def read_genes(file):
 
 
 def complement(seq):
-    complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'} 
+    complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N', '-': '-'}
     letters = [complement[base] for base in seq] 
     return ''.join(letters)
 
