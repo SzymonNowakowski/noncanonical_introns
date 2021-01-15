@@ -294,14 +294,18 @@ class Gene(GenomicSequence):
             for exon in exons_sorted:
                 start = exon.start
                 if end:
-                    to_be_joined.append((''.join(['-' for i in range(end - start)])))
+                    intron_length = start - end
+                    assert intron_length > -1
+                    to_be_joined.append((''.join(['-' for i in range(intron_length)])))
                 to_be_joined.append(exon.sequence)
                 end = exon.end
         else:
             for exon in exons_sorted:
                 start = exon.end
                 if end:
-                    to_be_joined.append((''.join(['-' for i in range(end - start)])))
+                    intron_length = end - start
+                    assert intron_length > -1
+                    to_be_joined.append((''.join(['-' for i in range(intron_length)])))
                 to_be_joined.append(exon.sequence)
                 end = exon.start
         sequence = ''.join(to_be_joined)
