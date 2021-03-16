@@ -326,7 +326,8 @@ class Gene(GenomicSequence):
                         sequence = self.sequence[start - self.start:end - self.start]
                     elif self.strand == '-':
                         sequence = self.sequence[- end + self.end: - start + self.end]
-                    self.append_introns(Intron(self.scaffold_name, start, end, strand=self.strand, sequence=sequence))
+                    int=Intron(self.scaffold_name, start, end, strand=self.strand, sequence=sequence)
+                    self.append_introns(int)
                     # elif self.strand == '-':
                     #     self.append_introns(Intron(self.scaffold_name, end, start))
                     # else:
@@ -367,10 +368,10 @@ def read_genome(file):
             else:
                 genome[gene] += line.strip()
     return genome
-
+    
 
 def read_genes(file):
-    genes = {}
+    genes = {} #slownik genow
     gene, exon = None, None
     for line in process_file(file):
         if line[0] == '#':
