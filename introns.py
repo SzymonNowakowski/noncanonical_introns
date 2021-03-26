@@ -199,7 +199,7 @@ class Intron(GenomicSequence):
                     i = 0
                     continue
                 new_left_margin, new_right_margin = self.margin_left_seq[:-i], self.sequence[-i:]+self.margin_right_seq
-                new_variation = Intron(self.scaffold_name, self.start - i, self.end - i, margin_left_seq=new_left_margin,
+                new_variation = Intron(self.scaffold_name, self.start-i, self.end-i, margin_left_seq=new_left_margin,
                                        margin_right_seq=new_right_margin, sequence=self.sequence)
                 self.variations.append(new_variation)
                 i += 1
@@ -253,36 +253,34 @@ class Intron(GenomicSequence):
         if self.sequence[0:2] in ['GT', 'GC'] and self.sequence[-2:] == 'AG':
             i = 4
             check = 0
-        elif self.sequence[0:2] == 'CT' and self.sequence[-2:] in ['AC', 'GC']:
-            i = 4
-            check = 1
+        # elif self.sequence[0:2] == 'CT' and self.sequence[-2:] in ['AC', 'GC']:
+        #     i = 4
+        #     check = 1
         else:
             return
         
         if check == 0:
             if self.sequence[-3] == 'C':
                 i = 3
-                if self.margin_left_seq and self.margin_right_seq and \
-                   self.margin_left_seq[-1] == 'G' and self.margin_right_seq[0] == 'G':
+                if self.margin_left_seq and self.margin_left_seq[-1] == 'G' and \
+                   self.margin_right_seq and self.margin_right_seq[0] == 'G':
                     i = 2
                     if len(self.margin_left_seq) > 1 and len(self.margin_right_seq) > 1 and \
                        self.margin_left_seq[-2] == 'A' and self.margin_right_seq[1] == 'T':
                         i = 1
             if self.sequence[1] == 'C': i += 4
             self.is_conventional = i
-        else:  # if check = 1
-            if self.sequence[2] == 'G':
-                i = 3
-                if self.margin_left_seq and \
-                   self.margin_right_seq and \
-                   self.margin_left_seq[-1] == 'C' and \
-                   self.margin_right_seq[0] == 'C':
-                    i = 2
-                    if len(self.margin_left_seq) > 1 and len(self.margin_right_seq) > 1 and \
-                       self.margin_left_seq[-2] == 'A' and self.margin_right_seq[1] == 'T':
-                        i = 1
-            if self.sequence[-2] == 'G': i += 4
-            self.is_conventional = i
+        # else:  # if check = 1
+        #     if self.sequence[2] == 'G':
+        #         i = 3
+        #         if self.margin_left_seq and self.margin_right_seq and \
+        #            self.margin_left_seq[-1] == 'C' and self.margin_right_seq[0] == 'C':
+        #             i = 2
+        #             if len(self.margin_left_seq) > 1 and len(self.margin_right_seq) > 1 and \
+        #                self.margin_left_seq[-2] == 'A' and self.margin_right_seq[1] == 'T':
+        #                 i = 1
+        #     if self.sequence[-2] == 'G': i += 4
+        #     self.is_conventional = i
 
 
 class Exon(GenomicSequence):
@@ -368,7 +366,7 @@ class Gene(GenomicSequence):
         sequence = ''.join([exon_seq[0] for exon_seq in exons_seqs])
         return sequence
 
-    def get_transcript_with_gaps_sequence(self, expanded = False):
+    def get_transcript_with_gaps_sequence(self, expanded=False):
         to_be_joined = []
         start, end = None, None
         reverse = True if self.strand == '-' else False
@@ -454,7 +452,7 @@ def read_genome(file):
     
 
 def read_genes(file):
-    genes = {} #  slownik genow
+    genes = {}  # slownik genow
     gene, exon = None, None
     for line in process_file(file):
         if line[0] == '#':
