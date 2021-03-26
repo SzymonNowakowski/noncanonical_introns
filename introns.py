@@ -58,6 +58,8 @@ class Intron(GenomicSequence):
     :param support: (int) Optional, how many reads support the intron.
     :param margin_left: (int) Optional, how many nucleotides from the preceding exon are included.
     :param margin_right: (int) Optional, how many nucleotides from the following exon are included.
+    :param margin_left: (str) Optional, end sequence from the preceding exon.
+    :param margin_right: (str) Optional, beginning sequence of the following exon.
     :param sequence: (str) Optional, genomic sequence of the intron.
     """
     scaffold_name = str
@@ -69,15 +71,23 @@ class Intron(GenomicSequence):
     margin_left = int
     margin_right = int
     sequence = str
+    margin_left_seq=str
+    margin_right_seq=str
+    is_conventional=int
+    is_nonconventional=int
 
     def __init__(self, scaffold_name, start, end, sequence=None, strand=None, gene=None, support=None, margin_left=0,
-                 margin_right=0):
+                 margin_right=0, margin_left_seq='', margin_right_seq=''):
         GenomicSequence.__init__(self, scaffold_name, start, end, sequence=sequence, strand=strand)
         self.gene = gene
         self.support = support
         self.margin_left = margin_left
         self.margin_right = margin_right
+        self.margin_left_seq=margin_left_seq
+        self.margin_right_seq=margin_right_seq
         self.variations = []
+        self.is_conventional=None
+        self.is_nonconventional=None
 
     def intersect(self, other_intron):
         """
@@ -117,6 +127,7 @@ class Intron(GenomicSequence):
 
     def movable_boundary(self):
         # moglem zepsuc
+        #ja zaraz jeszcze bardziej popsuje
         """
         Check if there are repeats on the intron junctions so the intron position could be shifted without changing
         transcript sequence. If there are, add new possible introns to self.variations.
@@ -148,7 +159,7 @@ class Intron(GenomicSequence):
                 else:
                     new_left_margin, new_right_margin = self.margin_left - (i - 1), self.margin_right + (i - 1)
                 new_variation = Intron(self.scaffold_name, self.start, self.end, margin_left=new_left_margin,
-                                       margin_right=new_right_margin, sequence=self.sequence)
+                                       margin_right=new_right_margin, sequence=self.sequence) #tu musi byc zmieniona sekwencja nowej wariacji
                 self.variations.append(new_variation)
             else:
                 if check == 'left':
@@ -166,11 +177,46 @@ class Intron(GenomicSequence):
             else:
                 # going further right
                 i -= 1
+        
+    def movable_boundary2(self):
+        # moglem zepsuc
+        #ja zaraz jeszcze bardziej popsuje
+        """
+        Check if there are repeats on the intron junctions so the intron position could be shifted without changing
+        transcript sequence. If there are, add new possible introns to self.variations.
+        """
+        if not self.margin_left_seq and self.margin_right_seq:
+            return
+        i = 1
+        # start checking for repeats left from the junction
+        check = 'left'
+        
+        while True:
+            if check=='left':
+                if i>len(self.margin_left_seq) or self.margin_left_seq[-i] != self.sequence[-i]:
+                    check='right'
+                    i=0
+                    continue
+                new_left_margin, new_right_margin = self.margin_left_seq[:-i], self.sequence[-i:]+self.margin_right_seq
+                new_variation = Intron(self.scaffold_name, self.start-i, self.end-i, margin_left_seq=new_left_margin, margin_right_seq=new_right_margin,
+                                       sequence=self.sequence)
+                self.variations.append(new_variation)
+                i+=1
+                
+            else:
+                if i+1>len(self.margin_right_seq) or self.sequence[i] != self.margin_right_seq[i]:
+                    break
+                new_left_margin, new_right_margin = self.margin_left_seq+self.sequence[:i+1], self.margin_right_seq[i+1:]
+                new_variation = Intron(self.scaffold_name, self.start+i, self.end+i, margin_left_seq=new_left_margin, margin_right_seq=new_right_margin,
+                                       sequence=self.sequence)
+                self.variations.append(new_variation)
+                i+=1
 
     def check_conventional(self):
         """ Check if the intron junctions suggest the intron is conventional."""
-        left_anchor = self.sequence[self.margin_left:self.margin_left + 2]
-        right_anchor = self.sequence[-self.margin_right - 2:-self.margin_right]
+        left_anchor = self.sequence[0:2] #[self.margin_left:self.margin_left + 2]
+        right_anchor = self.sequence[-2:] #[-self.margin_right - 2:-self.margin_right]            
+        
         if left_anchor in ['GT', 'GC'] and right_anchor == 'AG':
             return True
         elif left_anchor == 'CT' and right_anchor in ['AC', 'GC']:
@@ -188,8 +234,8 @@ class Intron(GenomicSequence):
             else:
                 return False
 
-        left_anchor = self.sequence[self.margin_left + 3:self.margin_left + 5]
-        right_anchor = self.sequence[-self.margin_right - 7: -self.margin_right - 5]
+        left_anchor = self.sequence[ 3: 5]
+        right_anchor = self.sequence[-7:-5]
 
         # try:
         if complimentary(left_anchor[0], right_anchor[1]) and complimentary(left_anchor[1], right_anchor[0]):
@@ -201,7 +247,35 @@ class Intron(GenomicSequence):
                     if son.check_unconventional():
                         return True
             return False
-
+    
+    def conventional_version(self):
+        if self.sequence[0:2] in ['GT', 'GC'] and self.sequence[-2:] == 'AG':
+            i=4
+            check=0
+        elif self.sequence[0:2] == 'CT' and self.sequence[-2:] in ['AC', 'GC']:
+            i=4
+            check=1
+        else:
+            return
+        
+        if check==0:
+            if self.sequence[-3]=='C':
+                i=3
+                if self.margin_left_seq and self.margin_right_seq and self.margin_left_seq[-1]=='G' and self.margin_right_seq[0]=='G':
+                    i=2
+                    if len(self.margin_left_seq)>1 and len(self.margin_right_seq)>1 and self.margin_left_seq[-2]=='A' and self.margin_right_seq[1]=='T':
+                        i=1
+            if self.sequence[1]=='C': i+=4
+            self.is_conventional=i
+        else: #if check=1
+            if self.sequence[2]=='G':
+                i=3
+                if self.margin_left_seq and self.margin_right_seq and self.margin_left_seq[-1]=='C' and self.margin_right_seq[0]=='C':
+                    i=2
+                    if len(self.margin_left_seq)>1 and len(self.margin_right_seq)>1 and self.margin_left_seq[-2]=='A' and self.margin_right_seq[1]=='T':
+                        i=1
+            if self.sequence[-2]=='G': i+=4
+            self.is_conventional=i
 
 class Exon(GenomicSequence):
     def __init__(self, scaffold_name, start, end, sequence='', strand=''):
