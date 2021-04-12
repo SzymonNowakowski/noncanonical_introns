@@ -44,6 +44,138 @@ class GenomicSequence:
     def __str__(self):
         return self.__repr__()
 
+class Gene(GenomicSequence):
+    def __init__(self, scaffold_name, start, end, sequence='', strand='', transcript=None, exons=None, introns=None,
+                 name=''):
+        # if strand == '-':
+        #     start, end = end, start
+        GenomicSequence.__init__(self, scaffold_name, start, end, sequence=sequence, strand=strand)
+        self.transcript = transcript
+        self.exons = [] if exons is None else exons
+        self.introns = [] if introns is None else introns
+        self.name = name
+        self.expanded_sequence = ''
+        self.expansion_left = 0
+        self.expansion_right = 0
+
+    def append_exons(self, exon):
+        self.exons.append(exon)
+    
+    def append_introns(self, intron):
+        self.introns.append(intron)
+    
+    def extract_sequence(self, genome):
+        # elif self.strand == '-':
+        #     sequence = genome[self.scaffold_name][self.end:self.start]
+        # else:
+        #     raise Exception('cojest')
+        scaffold_seq = genome[self.scaffold_name]
+        sequence = scaffold_seq[self.start:self.end]
+        expanded_sequence, expansion_left, expansion_right = self.get_expanded_sequence(scaffold_seq)
+        if self.strand == '-':
+            self.sequence = reverse_complement(sequence)
+            self.expanded_sequence = reverse_complement(expanded_sequence)
+            self.expansion_left = expansion_right
+            self.expansion_right = expansion_left
+        else:
+            self.sequence = sequence
+            self.expanded_sequence = expanded_sequence
+            self.expansion_right = expansion_right
+            self.expansion_left = expansion_left
+        for exon in self.exons:
+            if self.strand == '+':
+                exon.sequence = self.sequence[exon.start - self.start:exon.end - self.start]
+            elif self.strand == '-':
+                exon.sequence = self.sequence[- exon.end + self.end:- exon.start + self.end]
+            else:
+                print(self.name, exon.scaffold_name, exon.start, exon.end)
+                # raise Exception('co jest')
+        transcript_sequence = self.get_transcript_sequence()
+        self.transcript = Transcript(self.scaffold_name, self.start, self.end, strand=self.strand,
+                                     sequence=transcript_sequence)
+
+    def get_expanded_sequence(self, scaffold_seq):
+        start = max(0, self.start - 500)
+        end = min(len(scaffold_seq), self.end + 500)
+        expanded_sequence = scaffold_seq[start:end]
+        expansion_left = self.start - start
+        expansion_right = end - self.end
+        return expanded_sequence, expansion_left, expansion_right
+
+    def get_transcript_sequence(self):
+        exons_seqs = []
+        for exon in self.exons:
+            exons_seqs.append((exon.sequence, exon.start))
+        if self.strand == '+':
+            exons_seqs.sort(key=lambda tup: tup[1])
+        elif self.strand == '-':
+            exons_seqs.sort(key=lambda tup: tup[1], reverse=True)
+        sequence = ''.join([exon_seq[0] for exon_seq in exons_seqs])
+        return sequence
+
+    def get_transcript_with_gaps_sequence(self, expanded=False):
+        to_be_joined = []
+        start, end = None, None
+        reverse = True if self.strand == '-' else False
+        exons_sorted = sorted(self.exons, key=lambda obj: obj.start, reverse=reverse)
+        if not reverse:
+            for exon in exons_sorted:
+                start = exon.start
+                if end:
+                    intron_length = start - end
+                    assert intron_length > -1
+                    to_be_joined.append((''.join(['-' for i in range(intron_length)])))
+                to_be_joined.append(exon.sequence)
+                end = exon.end
+        else:
+            for exon in exons_sorted:
+                start = exon.end
+                if end:
+                    intron_length = end - start
+                    assert intron_length > -1
+                    to_be_joined.append((''.join(['-' for i in range(intron_length)])))
+                to_be_joined.append(exon.sequence)
+                end = exon.start
+        sequence = ''.join(to_be_joined)
+        if expanded:
+            sequence = self.expansion_left * '-' + sequence + self.expansion_right * '-'
+        return sequence
+
+    def create_introns(self):
+        if len(self.exons) < 1:
+            raise ValueError('No exons specified.')
+            return
+        else:
+            self.introns = []
+            start, end = 0, 0
+            for exon in self.exons:
+                end = exon.start - 1
+                if start:
+                    if self.strand == '+':
+                        sequence = self.sequence[start - self.start:end - self.start]
+                    elif self.strand == '-':
+                        sequence = self.sequence[- end + self.end: - start + self.end]
+                    int=Intron(self.scaffold_name, start, end, strand=self.strand, sequence=sequence, gene=self)
+                    self.append_introns(int)
+                    # elif self.strand == '-':
+                    #     self.append_introns(Intron(self.scaffold_name, end, start))
+                    # else:
+                    #     raise Exception('co jest')
+                start = exon.end
+        for intron in self.introns:
+            intron.movable_boundary_no_margins()
+        # for intron in self.introns:
+        #     if self.strand == '-':
+        #         print(str(intron), intron.start, self.start, intron.end, self.start, self.strand, intron.strand)
+        #         intron.sequence = self.sequence[intron.start - self.start:intron.end - self.start]
+        #         print(self.sequence)
+        #         print(intron.sequence)
+        #     elif self.strand == '+':
+        #         print(str(intron), intron.end, self.end, intron.start, self.end, self.strand, intron.strand)
+        #         intron.sequence = self.sequence[- intron.end + self.end:- intron.start + self.end]
+        #         print(self.sequence)
+        #         print(intron.sequence)
+
 
 @auto_attr_check
 class Intron(GenomicSequence):
@@ -65,7 +197,7 @@ class Intron(GenomicSequence):
     scaffold_name = str
     start = int
     end = int
-    gene = str
+    gene = Gene
     strand = str
     support = int
     margin_left = int
@@ -179,14 +311,21 @@ class Intron(GenomicSequence):
                 # going further right
                 i -= 1
         
-    def movable_boundary2(self):
+    def movable_boundary_no_margins(self):
         # moglem zepsuc
         # ja zaraz jeszcze bardziej popsuje
         """
         Check if there are repeats on the intron junctions so the intron position could be shifted without changing
         transcript sequence. If there are, add new possible introns to self.variations.
         """
-        if not self.margin_left_seq and self.margin_right_seq:
+        
+        if self.strand=='-':
+            istart, iend = -self.end + self.gene.end, -self.start + self.gene.end
+        elif self.strand=='+':
+            istart, iend = self.start-self.gene.start, self.end-self.gene.start
+        mls, mrs = self.gene.sequence[istart-3:istart], self.gene.sequence[iend:iend+3] #margin left sequence, margin right sequence
+            
+        if not mls and mrs:
             return
         i = 1
         # start checking for repeats left from the junction
@@ -194,29 +333,25 @@ class Intron(GenomicSequence):
         
         while True:
             if check == 'left':
-                if i > len(self.margin_left_seq) or self.margin_left_seq[-i] != self.sequence[-i]:
+                if i > len(mls) or mls[-i] != self.sequence[-i]:
                     check = 'right'
                     i = 0
                     continue
-                new_left_margin, new_right_margin = self.margin_left_seq[:-i], self.sequence[-i:]+self.margin_right_seq
-                new_variation = Intron(self.scaffold_name, self.start-i, self.end-i, margin_left_seq=new_left_margin,
-                                       margin_right_seq=new_right_margin, sequence=self.sequence)
-                self.variations.append(new_variation)
-                i += 1
+                new_seq=mls[-i:]+self.sequence[:-i]
+                new_variation = Intron(self.scaffold_name, start=self.start-i, end=self.end-i, gene=self.gene, sequence=new_seq)
                 
             else:
-                if i + 1 > len(self.margin_right_seq) or self.sequence[i] != self.margin_right_seq[i]:
+                if i + 1 > len(mrs) or self.sequence[i] != mrs[i]:
                     break
-                new_left_margin, new_right_margin = self.margin_left_seq+self.sequence[:i+1], self.margin_right_seq[i+1:]
-                new_variation = Intron(self.scaffold_name, self.start+i, self.end+i, margin_left_seq=new_left_margin,
-                                       margin_right_seq=new_right_margin, sequence=self.sequence)
-                self.variations.append(new_variation)
-                i += 1
+                new_seq=self.sequence[i:]+mrs[:i]
+                new_variation = Intron(self.scaffold_name, start=self.start+i, end=self.end+i, gene=self.gene, sequence=new_seq)
+            self.variations.append(new_variation)
+            i += 1
 
     def check_conventional(self):
         """ Check if the intron junctions suggest the intron is conventional."""
-        left_anchor = self.sequence[0:2]  # [self.margin_left:self.margin_left + 2]
-        right_anchor = self.sequence[-2:]  # [-self.margin_right - 2:-self.margin_right]
+        left_anchor = self.sequence[0:2]
+        right_anchor = self.sequence[-2:]
         
         if left_anchor in ['GT', 'GC'] and right_anchor == 'AG':
             return True
@@ -252,24 +387,25 @@ class Intron(GenomicSequence):
     def conventional_version(self):
         if self.sequence[0:2] in ['GT', 'GC'] and self.sequence[-2:] == 'AG':
             i = 4
-            check = 0
-        # elif self.sequence[0:2] == 'CT' and self.sequence[-2:] in ['AC', 'GC']:
-        #     i = 4
-        #     check = 1
         else:
             return
-        
-        if check == 0:
-            if self.sequence[-3] == 'C':
-                i = 3
-                if self.margin_left_seq and self.margin_left_seq[-1] == 'G' and \
-                   self.margin_right_seq and self.margin_right_seq[0] == 'G':
-                    i = 2
-                    if len(self.margin_left_seq) > 1 and len(self.margin_right_seq) > 1 and \
-                       self.margin_left_seq[-2] == 'A' and self.margin_right_seq[1] == 'T':
-                        i = 1
-            if self.sequence[1] == 'C': i += 4
-            self.is_conventional = i
+        if self.strand=='-':
+            istart, iend = -self.end + self.gene.end, -self.start + self.gene.end
+        elif self.strand=='+':
+            istart, iend = self.start-self.gene.start, self.end-self.gene.start
+        mls, mrs = self.gene.sequence[istart-3:istart], self.gene.sequence[iend:iend+3]
+        #mls, mrs = self.margin_left_seq, self.margin_right_seq
+        #if check == 0:
+        if self.sequence[-3] == 'C':
+            i = 3
+            if mls and mls[-1] == 'G' and \
+                mrs and mrs[0] == 'G':
+                i = 2
+                if len(mls) > 1 and len(mrs) > 1 and \
+                    mls[-2] == 'A' and mrs[1] == 'T':
+                    i = 1
+        if self.sequence[1] == 'C': i += 4
+        self.is_conventional = i
         # else:  # if check = 1
         #     if self.sequence[2] == 'G':
         #         i = 3
@@ -295,137 +431,6 @@ class Transcript():
         self.end = end
         self.sequence = sequence
         self.strand = strand
-
-
-class Gene(GenomicSequence):
-    def __init__(self, scaffold_name, start, end, sequence='', strand='', transcript=None, exons=None, introns=None,
-                 name=''):
-        # if strand == '-':
-        #     start, end = end, start
-        GenomicSequence.__init__(self, scaffold_name, start, end, sequence=sequence, strand=strand)
-        self.transcript = transcript
-        self.exons = [] if exons is None else exons
-        self.introns = [] if introns is None else introns
-        self.name = name
-        self.expanded_sequence = ''
-        self.expansion_left = 0
-        self.expansion_right = 0
-
-    def append_exons(self, exon):
-        self.exons.append(exon)
-    
-    def append_introns(self, intron):
-        self.introns.append(intron)
-    
-    def extract_sequence(self, genome):
-        # elif self.strand == '-':
-        #     sequence = genome[self.scaffold_name][self.end:self.start]
-        # else:
-        #     raise Exception('cojest')
-        scaffold_seq = genome[self.scaffold_name]
-        sequence = scaffold_seq[self.start:self.end]
-        expanded_sequence, expansion_left, expansion_right = self.get_expanded_sequence(scaffold_seq)
-        if self.strand == '-':
-            self.sequence = reverse_complement(sequence)
-            self.expanded_sequence = reverse_complement(expanded_sequence)
-            self.expansion_left = expansion_right
-            self.expansion_right = expansion_left
-        else:
-            self.sequence = sequence
-            self.expanded_sequence = expanded_sequence
-            self.expansion_right = expansion_right
-            self.expansion_left = expansion_left
-        for exon in self.exons:
-            if self.strand == '+':
-                exon.sequence = self.sequence[exon.start - self.start:exon.end - self.start]
-            elif self.strand == '-':
-                exon.sequence = self.sequence[- exon.end + self.end:- exon.start + self.end]
-            else:
-                print(self.name, exon.scaffold_name, exon.start, exon.end)
-                # raise Exception('co jest')
-        transcript_sequence = self.get_transcript_sequence()
-        self.transcript = Transcript(self.scaffold_name, self.start, self.end, strand=self.strand,
-                                     sequence=transcript_sequence)
-
-    def get_expanded_sequence(self, scaffold_seq):
-        start = max(0, self.start - 500)
-        end = min(len(scaffold_seq), self.end + 500)
-        expanded_sequence = scaffold_seq[start:end]
-        expansion_left = self.start - start
-        expansion_right = end - self.end
-        return expanded_sequence, expansion_left, expansion_right
-
-    def get_transcript_sequence(self):
-        exons_seqs = []
-        for exon in self.exons:
-            exons_seqs.append((exon.sequence, exon.start))
-        if self.strand == '+':
-            exons_seqs.sort(key=lambda tup: tup[1])
-        elif self.strand == '-':
-            exons_seqs.sort(key=lambda tup: tup[1], reverse=True)
-        sequence = ''.join([exon_seq[0] for exon_seq in exons_seqs])
-        return sequence
-
-    def get_transcript_with_gaps_sequence(self, expanded=False):
-        to_be_joined = []
-        start, end = None, None
-        reverse = True if self.strand == '-' else False
-        exons_sorted = sorted(self.exons, key=lambda obj: obj.start, reverse=reverse)
-        if not reverse:
-            for exon in exons_sorted:
-                start = exon.start
-                if end:
-                    intron_length = start - end
-                    assert intron_length > -1
-                    to_be_joined.append((''.join(['-' for i in range(intron_length)])))
-                to_be_joined.append(exon.sequence)
-                end = exon.end
-        else:
-            for exon in exons_sorted:
-                start = exon.end
-                if end:
-                    intron_length = end - start
-                    assert intron_length > -1
-                    to_be_joined.append((''.join(['-' for i in range(intron_length)])))
-                to_be_joined.append(exon.sequence)
-                end = exon.start
-        sequence = ''.join(to_be_joined)
-        if expanded:
-            sequence = self.expansion_left * '-' + sequence + self.expansion_right * '-'
-        return sequence
-
-    def create_introns(self):
-        if len(self.exons) < 1:
-            raise ValueError('No exons specified.')
-        else:
-            self.introns = []
-            start, end = 0, 0
-            for exon in self.exons:
-                end = exon.start - 1
-                if start:
-                    if self.strand == '+':
-                        sequence = self.sequence[start - self.start:end - self.start]
-                    elif self.strand == '-':
-                        sequence = self.sequence[- end + self.end: - start + self.end]
-                    int=Intron(self.scaffold_name, start, end, strand=self.strand, sequence=sequence)
-                    self.append_introns(int)
-                    # elif self.strand == '-':
-                    #     self.append_introns(Intron(self.scaffold_name, end, start))
-                    # else:
-                    #     raise Exception('co jest')
-                start = exon.end
-        # for intron in self.introns:
-        #     if self.strand == '-':
-        #         print(str(intron), intron.start, self.start, intron.end, self.start, self.strand, intron.strand)
-        #         intron.sequence = self.sequence[intron.start - self.start:intron.end - self.start]
-        #         print(self.sequence)
-        #         print(intron.sequence)
-        #     elif self.strand == '+':
-        #         print(str(intron), intron.end, self.end, intron.start, self.end, self.strand, intron.strand)
-        #         intron.sequence = self.sequence[- intron.end + self.end:- intron.start + self.end]
-        #         print(self.sequence)
-        #         print(intron.sequence)
-
 
 def process_file(file_path):
     try:
