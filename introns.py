@@ -149,14 +149,20 @@ class Gene(GenomicSequence):
             self.introns = []
             start, end = 0, 0
             for exon in self.exons:
+                prev_e = exon.prev_exon
                 end = exon.start - 1
                 if start:
                     if self.strand == '+':
                         sequence = self.sequence[start - self.start:end - self.start]
                     elif self.strand == '-':
                         sequence = self.sequence[- end + self.end: - start + self.end]
-                    int=Intron(self.scaffold_name, start, end, strand=self.strand, sequence=sequence, gene=self)
+                    int=Intron(self.scaffold_name, start, end, strand=self.strand, sequence=sequence, gene=self, prev_exon=prev_e, next_exon=exon)
                     self.append_introns(int)
+                    
+                    prev_e.next_intron = int
+                    exon.prev_intron=int
+
+                    prev_e=exon
                     # elif self.strand == '-':
                     #     self.append_introns(Intron(self.scaffold_name, end, start))
                     # else:
@@ -164,6 +170,7 @@ class Gene(GenomicSequence):
                 start = exon.end
         for intron in self.introns:
             intron.movable_boundary_no_margins()
+        
         # for intron in self.introns:
         #     if self.strand == '-':
         #         print(str(intron), intron.start, self.start, intron.end, self.start, self.strand, intron.strand)
@@ -183,8 +190,10 @@ class Intron(GenomicSequence):
     This is a class for working with biological introns.
 
     :param scaffold_name: (str) Name of scaffold or chromosome on which the intron is located.
-    :param start: (int) Location of the first base of the intron.
-    :param end: (int) Location of the first base of the next exon.
+    :param start: (int) Location of the first base of the intron (within scaffold).
+    :param end: (int) Location of the first base of the next exon (within scaffold).
+    :param start: (int) Location of the first base of the intron (within gene).
+    :param end: (int) Location of the first base of the next exon (within gene).
     :param gene: (str) Gene in which the intron is located.
     :param strand (str): Optional, defines the strand on which intron is located. Must be either + or -.
     :param support: (int) Optional, how many reads support the intron.
@@ -196,6 +205,10 @@ class Intron(GenomicSequence):
     """
     scaffold_name = str
     start = int
+    end = int
+    end_gene = int
+    start = int
+    start_gene = int
     end = int
     gene = Gene
     strand = str
@@ -209,7 +222,7 @@ class Intron(GenomicSequence):
     is_nonconventional = int
 
     def __init__(self, scaffold_name, start, end, sequence=None, strand=None, gene=None, support=None, margin_left=0,
-                 margin_right=0, margin_left_seq='', margin_right_seq=''):
+                 margin_right=0, margin_left_seq='', margin_right_seq='', prev_exon=None, next_exon=None):
         GenomicSequence.__init__(self, scaffold_name, start, end, sequence=sequence, strand=strand)
         self.gene = gene
         self.support = support
@@ -218,8 +231,15 @@ class Intron(GenomicSequence):
         self.margin_left_seq = margin_left_seq
         self.margin_right_seq = margin_right_seq
         self.variations = []
-        self.is_conventional = None
-        self.is_nonconventional = None
+        self.is_conventional = 0
+        self.is_nonconventional = 0
+        self.prev_exon = prev_exon
+        self.next_exon = next_exon
+        
+        if self.strand=='-':
+            self.start_gene, self.end_gene = -self.end + self.gene.end, -self.start + self.gene.end
+        elif self.strand=='+':
+            self.start_gene, self.end_gene = self.start-self.gene.start, self.end-self.gene.start
 
     def intersect(self, other_intron):
         """
@@ -319,21 +339,17 @@ class Intron(GenomicSequence):
         transcript sequence. If there are, add new possible introns to self.variations.
         """
         
-        if self.strand=='-':
-            istart, iend = -self.end + self.gene.end, -self.start + self.gene.end
-        elif self.strand=='+':
-            istart, iend = self.start-self.gene.start, self.end-self.gene.start
-        mls, mrs = self.gene.sequence[istart-3:istart], self.gene.sequence[iend:iend+3] #margin left sequence, margin right sequence
-            
-        if not mls and mrs:
+        if not self.prev_exon or not self.next_exon:
             return
+        mls, mrs = self.prev_exon.sequence, self.next_exon.sequence
+        
         i = 1
         # start checking for repeats left from the junction
         check = 'left'
         
         while True:
             if check == 'left':
-                if i > len(mls) or mls[-i] != self.sequence[-i]:
+                if i > len(mls) or i > len(self.sequence) or mls[-i] != self.sequence[-i]:
                     check = 'right'
                     i = 0
                     continue
@@ -341,7 +357,7 @@ class Intron(GenomicSequence):
                 new_variation = Intron(self.scaffold_name, start=self.start-i, end=self.end-i, gene=self.gene, sequence=new_seq)
                 
             else:
-                if i + 1 > len(mrs) or self.sequence[i] != mrs[i]:
+                if i + 1 > len(mrs) or i + 1 > len(self.sequence) or self.sequence[i] != mrs[i]:
                     break
                 new_seq=self.sequence[i:]+mrs[:i]
                 new_variation = Intron(self.scaffold_name, start=self.start+i, end=self.end+i, gene=self.gene, sequence=new_seq)
@@ -389,11 +405,11 @@ class Intron(GenomicSequence):
             i = 4
         else:
             return
-        if self.strand=='-':
-            istart, iend = -self.end + self.gene.end, -self.start + self.gene.end
-        elif self.strand=='+':
-            istart, iend = self.start-self.gene.start, self.end-self.gene.start
-        mls, mrs = self.gene.sequence[istart-3:istart], self.gene.sequence[iend:iend+3]
+        
+        if not self.prev_exon or not self.next_exon:
+            return
+        mls, mrs = self.prev_exon.sequence[-3:], self.next_exon.sequence[:3]
+        
         #mls, mrs = self.margin_left_seq, self.margin_right_seq
         #if check == 0:
         if self.sequence[-3] == 'C':
@@ -420,8 +436,12 @@ class Intron(GenomicSequence):
 
 
 class Exon(GenomicSequence):
-    def __init__(self, scaffold_name, start, end, sequence='', strand=''):
+    def __init__(self, scaffold_name, start, end, sequence='', strand='', prev_exon=None, next_exon=None, prev_intron=None, next_intron=None):
         GenomicSequence.__init__(self, scaffold_name, start, end, sequence=sequence, strand=strand)
+        self.prev_exon = prev_exon
+        self.next_exon = next_exon
+        self.prev_intron = prev_intron
+        self.next_intron = next_intron
 
 
 class Transcript():
@@ -459,6 +479,7 @@ def read_genome(file):
 def read_genes(file):
     genes = {}  # slownik genow
     gene, exon = None, None
+    prev = None
     for line in process_file(file):
         if line[0] == '#':
             continue
@@ -467,8 +488,10 @@ def read_genes(file):
                 genes[gene.name] = gene
             gene = Gene(line[0], line[3] - 1, line[4], name=line[11].strip('";'), strand=line[6], exons=[])
         elif line[2] == 'exon':
-            exon = Exon(line[0], line[3] - 1, line[4], strand=line[6])
+            exon = Exon(line[0], line[3] - 1, line[4], strand=line[6], prev_exon = prev)
             gene.append_exons(exon)
+            if prev: prev.next_exon=exon
+            prev=exon
     if gene:
         genes[gene.name] = gene
     return genes
