@@ -25,8 +25,8 @@ def auto_attr_check(cls):
 class GenomicSequence:
     def __init__(self, scaffold_name, start, end, sequence=None, strand=None):
         self.scaffold_name = scaffold_name
-        self.start = start
-        self.end = end
+        self.scaffold_start = start
+        self.scaffold_end = end
         if sequence and len(sequence) != self.length():
             raise ValueError('Incorrect sequence length.')
         self.sequence = sequence
@@ -36,13 +36,14 @@ class GenomicSequence:
             self.strand = strand
 
     def length(self):
-        return self.end - self.start
+        return self.scaffold_end - self.scaffold_start
     
     def __repr__(self):
-        return ' '.join([self.scaffold_name, str(self.start), str(self.end)])
+        return ' '.join([self.scaffold_name, str(self.scaffold_start), str(self.scaffold_end)])
         
     def __str__(self):
         return self.__repr__()
+
 
 class Gene(GenomicSequence):
     def __init__(self, scaffold_name, start, end, sequence='', strand='', transcript=None, exons=None, introns=None,
@@ -70,7 +71,7 @@ class Gene(GenomicSequence):
         # else:
         #     raise Exception('cojest')
         scaffold_seq = genome[self.scaffold_name]
-        sequence = scaffold_seq[self.start:self.end]
+        sequence = scaffold_seq[self.scaffold_start:self.scaffold_end]
         expanded_sequence, expansion_left, expansion_right = self.get_expanded_sequence(scaffold_seq)
         if self.strand == '-':
             self.sequence = reverse_complement(sequence)
@@ -84,22 +85,22 @@ class Gene(GenomicSequence):
             self.expansion_left = expansion_left
         for exon in self.exons:
             if self.strand == '+':
-                exon.sequence = self.sequence[exon.start - self.start:exon.end - self.start]
+                exon.sequence = self.sequence[exon.start - self.scaffold_start:exon.end - self.scaffold_start]
             elif self.strand == '-':
-                exon.sequence = self.sequence[- exon.end + self.end:- exon.start + self.end]
+                exon.sequence = self.sequence[- exon.end + self.scaffold_end:- exon.start + self.scaffold_end]
             else:
                 print(self.name, exon.scaffold_name, exon.start, exon.end)
                 # raise Exception('co jest')
         transcript_sequence = self.get_transcript_sequence()
-        self.transcript = Transcript(self.scaffold_name, self.start, self.end, strand=self.strand,
+        self.transcript = Transcript(self.scaffold_name, self.scaffold_start, self.scaffold_end, strand=self.strand,
                                      sequence=transcript_sequence)
 
     def get_expanded_sequence(self, scaffold_seq):
-        start = max(0, self.start - 500)
-        end = min(len(scaffold_seq), self.end + 500)
+        start = max(0, self.scaffold_start - 500)
+        end = min(len(scaffold_seq), self.scaffold_end + 500)
         expanded_sequence = scaffold_seq[start:end]
-        expansion_left = self.start - start
-        expansion_right = end - self.end
+        expansion_left = self.scaffold_start - start
+        expansion_right = end - self.scaffold_end
         return expanded_sequence, expansion_left, expansion_right
 
     def get_transcript_sequence(self):
@@ -153,9 +154,9 @@ class Gene(GenomicSequence):
                 end = exon.start - 1
                 if start:
                     if self.strand == '+':
-                        sequence = self.sequence[start - self.start:end - self.start]
+                        sequence = self.sequence[start - self.scaffold_start:end - self.scaffold_start]
                     elif self.strand == '-':
-                        sequence = self.sequence[- end + self.end: - start + self.end]
+                        sequence = self.sequence[- end + self.scaffold_end: - start + self.scaffold_end]
                     int=Intron(self.scaffold_name, start, end, strand=self.strand, sequence=sequence, gene=self, prev_exon=prev_e, next_exon=exon)
                     self.append_introns(int)
                     
@@ -204,12 +205,12 @@ class Intron(GenomicSequence):
     :param sequence: (str) Optional, genomic sequence of the intron.
     """
     scaffold_name = str
-    start = int
-    end = int
-    end_gene = int
-    start = int
-    start_gene = int
-    end = int
+    scaffold_start = int
+    scaffold_end = int
+    gene_end = int
+    scaffold_start = int
+    gene_start = int
+    scaffold_end = int
     gene = Gene
     strand = str
     support = int
@@ -237,9 +238,9 @@ class Intron(GenomicSequence):
         self.next_exon = next_exon
         
         if self.strand=='-':
-            self.start_gene, self.end_gene = -self.end + self.gene.end, -self.start + self.gene.end
+            self.gene_start, self.gene_end = -self.end + self.gene.end, -self.start + self.gene.end
         elif self.strand=='+':
-            self.start_gene, self.end_gene = self.start-self.gene.start, self.end-self.gene.start
+            self.gene_start, self.gene_end = self.start - self.gene.start, self.end - self.gene.start
 
     def intersect(self, other_intron):
         """
@@ -451,6 +452,7 @@ class Transcript():
         self.end = end
         self.sequence = sequence
         self.strand = strand
+
 
 def process_file(file_path):
     try:
