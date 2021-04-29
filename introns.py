@@ -23,10 +23,10 @@ def auto_attr_check(cls):
 
 
 class GenomicSequence:
-    def __init__(self, scaffold_name, start, end, sequence=None, strand=None):
+    def __init__(self, scaffold_name, scaffold_start, scaffold_end, sequence=None, strand=None):
         self.scaffold_name = scaffold_name
-        self.scaffold_start = start
-        self.scaffold_end = end
+        self.scaffold_start = scaffold_start
+        self.scaffold_end = scaffold_end
         if sequence and len(sequence) != self.length():
             raise ValueError('Incorrect sequence length.')
         self.sequence = sequence
@@ -46,11 +46,11 @@ class GenomicSequence:
 
 
 class Gene(GenomicSequence):
-    def __init__(self, scaffold_name, start, end, sequence='', strand='', transcript=None, exons=None, introns=None,
+    def __init__(self, scaffold_name, scaffold_start, scaffold_end, sequence='', strand='', transcript=None, exons=None, introns=None,
                  name=''):
         # if strand == '-':
         #     start, end = end, start
-        GenomicSequence.__init__(self, scaffold_name, start, end, sequence=sequence, strand=strand)
+        GenomicSequence.__init__(self, scaffold_name, scaffold_start, scaffold_end, sequence=sequence, strand=strand)
         self.transcript = transcript
         self.exons = [] if exons is None else exons
         self.introns = [] if introns is None else introns
@@ -222,9 +222,9 @@ class Intron(GenomicSequence):
     is_conventional = int
     is_nonconventional = int
 
-    def __init__(self, scaffold_name, start, end, sequence=None, strand=None, gene=None, support=None, margin_left=0,
+    def __init__(self, scaffold_name, scaffold_start, scaffold_end, sequence=None, strand=None, gene=None, support=None, margin_left=0,
                  margin_right=0, margin_left_seq='', margin_right_seq='', prev_exon=None, next_exon=None):
-        GenomicSequence.__init__(self, scaffold_name, start, end, sequence=sequence, strand=strand)
+        GenomicSequence.__init__(self, scaffold_name, scaffold_start, scaffold_end, sequence=sequence, strand=strand)
         self.gene = gene
         self.support = support
         self.margin_left = margin_left
@@ -238,44 +238,44 @@ class Intron(GenomicSequence):
         self.next_exon = next_exon
         
         if self.strand=='-':
-            self.gene_start, self.gene_end = -self.end + self.gene.end, -self.start + self.gene.end
+            self.gene_start, self.gene_end = -self.scaffold_end + self.gene.scaffold_end, -self.scaffold_start + self.gene.scaffold_end
         elif self.strand=='+':
-            self.gene_start, self.gene_end = self.start - self.gene.start, self.end - self.gene.start
+            self.gene_start, self.gene_end = self.scaffold_start - self.gene.scaffold_start, self.scaffold_end - self.gene.scaffold_start
 
-    def intersect(self, other_intron):
-        """
-        Checks if two introns cover partially the same area.
+    # def intersect(self, other_intron):
+    #     """
+    #     Checks if two introns cover partially the same area.
+    #
+    #     :param other_intron: (Intron) Intron with which intersection of self is checked.
+    #     :return: Bool: True if introns share at least one base, False otherwise.
+    #     """
+    #     if not isinstance(other_intron, Intron):
+    #         raise ValueError('Both introns must be instances of Intron class')
+    #
+    #     else:
+    #         if self.scaffold_name != other_intron.scaffold_name:
+    #             raise ValueError('Introns on different scaffold cannot intersect.')
+    #         if (self.scaffold_start in range(other_intron.scaffold_start, other_intron.scaffold_end))\
+    #                 or (self.scaffold_end in range(other_intron.start, other_intron.end))\
+    #                 or (self.scaffold_start < other_intron.scaffold_start and self.scaffold_end > other_intron.scaffold_end):
+    #             return True
+    #         else:
+    #             return False
 
-        :param other_intron: (Intron) Intron with which intersection of self is checked.
-        :return: Bool: True if introns share at least one base, False otherwise.
-        """
-        if not isinstance(other_intron, Intron):
-            raise ValueError('Both introns must be instances of Intron class')
-
-        else:
-            if self.scaffold_name != other_intron.scaffold_name:
-                raise ValueError('Introns on different scaffold cannot intersect.')
-            if (self.start in range(other_intron.start, other_intron.end))\
-                    or (self.end in range(other_intron.start, other_intron.end))\
-                    or (self.start < other_intron.start and self.end > other_intron.end):
-                return True
-            else:
-                return False
-
-    def classify_intersection(self, intron):
-        """
-        For two intersecting introns return the type of intersection
-
-        :param intron: (Intron) Intron with which type of intersection with self is checked.
-        :return: 2 if the introns are identical, 1 if only either start or end is the same, 0 otherwise.
-        """
-        if self.scaffold_name != intron.scaffold_name:
-            raise ValueError('Introns do not intersect at all.')
-        if self.start == intron.start and self.end == intron.end:
-            return 2
-        elif self.start == intron.start or self.end == intron.end:
-            return 1
-        else:
+    # def classify_intersection(self, intron):
+    #     """
+    #     For two intersecting introns return the type of intersection
+    #
+    #     :param intron: (Intron) Intron with which type of intersection with self is checked.
+    #     :return: 2 if the introns are identical, 1 if only either start or end is the same, 0 otherwise.
+    #     """
+    #     if self.scaffold_name != intron.scaffold_name:
+    #         raise ValueError('Introns do not intersect at all.')
+    #     if self.start == intron.start and self.end == intron.end:
+    #         return 2
+    #     elif self.start == intron.start or self.end == intron.end:
+    #         return 1
+    #     else:
             return 0
 
     def movable_boundary(self):
@@ -312,7 +312,7 @@ class Intron(GenomicSequence):
                 else:
                     new_left_margin, new_right_margin = self.margin_left - (i - 1), self.margin_right + (i - 1)
                 # TODO tu musi byc zmieniona sekwencja nowej wariacji
-                new_variation = Intron(self.scaffold_name, self.start, self.end, margin_left=new_left_margin,
+                new_variation = Intron(self.scaffold_name, self.scaffold_start, self.scaffold_end, margin_left=new_left_margin,
                                        margin_right=new_right_margin, sequence=self.sequence)
                 self.variations.append(new_variation)
             else:
@@ -355,13 +355,13 @@ class Intron(GenomicSequence):
                     i = 0
                     continue
                 new_seq=mls[-i:]+self.sequence[:-i]
-                new_variation = Intron(self.scaffold_name, start=self.start-i, end=self.end-i, gene=self.gene, sequence=new_seq)
+                new_variation = Intron(self.scaffold_name, scaffold_start=self.scaffold_start - i, scaffold_end=self.scaffold_end - i, gene=self.gene, sequence=new_seq)
                 
             else:
                 if i + 1 > len(mrs) or i + 1 > len(self.sequence) or self.sequence[i] != mrs[i]:
                     break
                 new_seq=self.sequence[i:]+mrs[:i]
-                new_variation = Intron(self.scaffold_name, start=self.start+i, end=self.end+i, gene=self.gene, sequence=new_seq)
+                new_variation = Intron(self.scaffold_name, scaffold_start=self.scaffold_start + i, scaffold_end=self.scaffold_end + i, gene=self.gene, sequence=new_seq)
             self.variations.append(new_variation)
             i += 1
 
@@ -437,8 +437,8 @@ class Intron(GenomicSequence):
 
 
 class Exon(GenomicSequence):
-    def __init__(self, scaffold_name, start, end, sequence='', strand='', prev_exon=None, next_exon=None, prev_intron=None, next_intron=None):
-        GenomicSequence.__init__(self, scaffold_name, start, end, sequence=sequence, strand=strand)
+    def __init__(self, scaffold_name, scaffold_start, scaffold_end, sequence='', strand='', prev_exon=None, next_exon=None, prev_intron=None, next_intron=None):
+        GenomicSequence.__init__(self, scaffold_name, scaffold_start, scaffold_end, sequence=sequence, strand=strand)
         self.prev_exon = prev_exon
         self.next_exon = next_exon
         self.prev_intron = prev_intron
