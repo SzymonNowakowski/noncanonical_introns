@@ -377,15 +377,11 @@ class Intron(GenomicSequence):
         else:
             return False
 
-    def check_unconventional(self):
-        """Check if intron may be unconventional according to our current knowledge, meaning it can form
+    def check_nonconventional(self):
+        """Check if intron may be nonconventional according to our current knowledge, meaning it can form
         secondary structure in specific positions. Also check if variations with shifted junctions may be
-        unconventional."""
-        def complimentary(n1, n2):
-            if {n1, n2} in [{'A', 'T'}, {'C', 'G'}, {'C', 'T'}]:
-                return True
-            else:
-                return False
+        nonconventional."""
+        #funkcje complimentary wyciagnelam poza te funkcje
 
         left_anchor = self.sequence[3: 5]
         right_anchor = self.sequence[-7:-5]
@@ -397,10 +393,10 @@ class Intron(GenomicSequence):
             # checking variations
             if len(self.variations) > 0:
                 for son in self.variations:
-                    if son.check_unconventional():
+                    if son.check_nonconventional():
                         return True
             return False
-    
+            
     def conventional_version(self):
         if self.sequence[0:2] in ['GT', 'GC'] and self.sequence[-2:] == 'AG':
             i = 4
@@ -435,6 +431,44 @@ class Intron(GenomicSequence):
         #     if self.sequence[-2] == 'G': i += 4
         #     self.is_conventional = i
 
+    def nonconventional_version(self):
+        def isR(N):
+            if N in ["G","A"]: return True
+            return False
+        def isY(N):
+            if N in ["C", "T"]: return True
+            return False
+        seq=self.sequence
+        if self.next_exon: nex=self.next_exon.sequence[:3]
+        else: nex=None
+        if self.prev_exon: prev=self.prev_exon.sequence[-1]
+        else: prev=None
+        i=0
+        
+        if complimentary(seq[3],seq[-6]) and complimentary(seq[4],seq[-7]):
+            i=11
+            if complimentary(seq[5], seq[-8]): #10
+                i=10
+                if seq[4]=='A' and seq[-7]=='T': #9
+                    i=9
+                    if seq[3]=="C" and seq[-6]=='G': #8
+                        i=8
+                        if prev and nex and isY(prev) and isR(seq[0]) and isY(seq[-1]): #7/6
+                            i = (isR(nex[0]) and 7) or (nex[2]=='C' and 6)
+                            if isR(nex[0]) and nex[2]=='C': #3
+                                i=3
+                                if seq[5]=='G' and seq[-8]=='C': #2
+                                    i=2
+                                    if nex[1]=='A': #1
+                                        i=1        
+                        elif nex and isR(seq[0]) and isR(nex[0]) and nex[2]=='C': #5,4
+                            if prev and isY(prev):
+                                i=5
+                            elif isY(seq[-1]):
+                                i=4
+                                
+        self.is_nonconventional = i
+        
 
 class Exon(GenomicSequence):
     def __init__(self, scaffold_name, scaffold_start, scaffold_end, sequence='', strand='', prev_exon=None, next_exon=None, prev_intron=None, next_intron=None):
@@ -508,3 +542,8 @@ def complement(seq):
 def reverse_complement(seq):
     return complement(seq[::-1])
 
+def complimentary(n1, n2):
+    if {n1, n2} in [{'A', 'T'}, {'C', 'G'}, {'G', 'T'}]:
+        return True
+    else:
+        return False
