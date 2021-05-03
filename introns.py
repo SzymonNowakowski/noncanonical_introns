@@ -1,4 +1,5 @@
 from collections import defaultdict
+from copy import copy
 
 
 def getter_setter_gen(name, type_):
@@ -67,7 +68,7 @@ class Gene(GenomicSequence):
     
     def extract_sequence(self, genome):
         # elif self.strand == '-':
-        #     sequence = genome[self.scaffold_name][self.end:self.start]
+        #     sequence = genome[self.scaffold_name][self.scaffold_end:self.scaffold_start]
         # else:
         #     raise Exception('cojest')
         scaffold_seq = genome[self.scaffold_name]
@@ -121,22 +122,22 @@ class Gene(GenomicSequence):
         exons_sorted = sorted(self.exons, key=lambda obj: obj.start, reverse=reverse)
         if not reverse:
             for exon in exons_sorted:
-                start = exon.start
+                start = exon.scaffold_start
                 if end:
                     intron_length = start - end
                     assert intron_length > -1
                     to_be_joined.append((''.join(['-' for i in range(intron_length)])))
                 to_be_joined.append(exon.sequence)
-                end = exon.end
+                end = exon.scaffold_end
         else:
             for exon in exons_sorted:
-                start = exon.end
+                start = exon.scaffold_end
                 if end:
                     intron_length = end - start
                     assert intron_length > -1
                     to_be_joined.append((''.join(['-' for i in range(intron_length)])))
                 to_be_joined.append(exon.sequence)
-                end = exon.start
+                end = exon.scaffold_start
         sequence = ''.join(to_be_joined)
         if expanded:
             sequence = self.expansion_left * '-' + sequence + self.expansion_right * '-'
@@ -148,39 +149,39 @@ class Gene(GenomicSequence):
             return
         else:
             self.introns = []
-            scaffold_start, scaffold_end = 0, 0
+            start, end = 0, 0
             for exon in self.exons:
                 prev_e = exon.prev_exon
-                scaffold_end = exon.scaffold_start - 1
-                if scaffold_start:
+                end = exon.scaffold_start - 1
+                if start:
                     if self.strand == '+':
-                        sequence = self.sequence[scaffold_start - self.scaffold_start:scaffold_end - self.scaffold_start]
+                        sequence = self.sequence[start - self.scaffold_start:end - self.scaffold_start]
                     elif self.strand == '-':
-                        sequence = self.sequence[- scaffold_end + self.scaffold_end: - scaffold_start + self.scaffold_end]
-                    intron = Intron(self.scaffold_name, scaffold_start, scaffold_end, strand=self.strand, sequence=sequence, gene=self, prev_exon=prev_e, next_exon=exon)
-                    self.append_introns(intron)
+                        sequence = self.sequence[- end + self.scaffold_end: - start + self.scaffold_end]
+                    intr=Intron(self.scaffold_name, scaffold_start = start, scaffold_end = end, strand=self.strand, sequence=sequence, gene=self, prev_exon=prev_e, next_exon=exon)
+                    self.append_introns(intr)
                     
-                    prev_e.next_intron = intron
-                    exon.prev_intron = intron
+                    prev_e.next_intron = intr
+                    exon.prev_intron=intr
 
                     prev_e=exon
                     # elif self.strand == '-':
                     #     self.append_introns(Intron(self.scaffold_name, end, start))
                     # else:
                     #     raise Exception('co jest')
-                scaffold_start = exon.scaffold_end
+                start = exon.scaffold_end
         for intron in self.introns:
             intron.movable_boundary_no_margins()
         
         # for intron in self.introns:
         #     if self.strand == '-':
-        #         print(str(intron), intron.start, self.start, intron.end, self.start, self.strand, intron.strand)
-        #         intron.sequence = self.sequence[intron.start - self.start:intron.end - self.start]
+        #         print(str(intron), intron.scaffold_start, self.scaffold_start, intron.scaffold_end, self.scaffold_start, self.strand, intron.strand)
+        #         intron.sequence = self.sequence[intron.scaffold_start - self.scaffold_start:intron.scaffold_end - self.scaffold_start]
         #         print(self.sequence)
         #         print(intron.sequence)
         #     elif self.strand == '+':
-        #         print(str(intron), intron.end, self.end, intron.start, self.end, self.strand, intron.strand)
-        #         intron.sequence = self.sequence[- intron.end + self.end:- intron.start + self.end]
+        #         print(str(intron), intron.scaffold_end, self.scaffold_end, intron.sscaffold_tart, self.scaffold_end, self.strand, intron.strand)
+        #         intron.sequence = self.sequence[- intron.scaffold_end + self.scaffold_end:- intron.scaffold_start + self.scaffold_end]
         #         print(self.sequence)
         #         print(intron.sequence)
 
@@ -208,9 +209,7 @@ class Intron(GenomicSequence):
     scaffold_start = int
     scaffold_end = int
     gene_end = int
-    scaffold_start = int
     gene_start = int
-    scaffold_end = int
     gene = Gene
     strand = str
     support = int
@@ -256,7 +255,7 @@ class Intron(GenomicSequence):
     #         if self.scaffold_name != other_intron.scaffold_name:
     #             raise ValueError('Introns on different scaffold cannot intersect.')
     #         if (self.scaffold_start in range(other_intron.scaffold_start, other_intron.scaffold_end))\
-    #                 or (self.scaffold_end in range(other_intron.start, other_intron.end))\
+    #                 or (self.scaffold_end in range(other_intron.scaffold_start, other_intron.scaffold_end))\
     #                 or (self.scaffold_start < other_intron.scaffold_start and self.scaffold_end > other_intron.scaffold_end):
     #             return True
     #         else:
@@ -271,9 +270,9 @@ class Intron(GenomicSequence):
     #     """
     #     if self.scaffold_name != intron.scaffold_name:
     #         raise ValueError('Introns do not intersect at all.')
-    #     if self.start == intron.start and self.end == intron.end:
+    #     if self.scaffold_start == intron.sscaffold_tart and self.scaffold_end == intron.scaffold_end:
     #         return 2
-    #     elif self.start == intron.start or self.end == intron.end:
+    #     elif self.scaffold_start == intron.scaffold_start or self.scaffold_end == intron.scaffold_end:
     #         return 1
     #     else:
     #        return 0
@@ -355,13 +354,27 @@ class Intron(GenomicSequence):
                     i = 0
                     continue
                 new_seq=mls[-i:]+self.sequence[:-i]
-                new_variation = Intron(self.scaffold_name, scaffold_start=self.scaffold_start - i, scaffold_end=self.scaffold_end - i, gene=self.gene, sequence=new_seq)
+                new_prev_exon = copy(self.prev_exon)
+                new_prev_exon.sequence = new_prev_exon.sequence[:-i]
+                new_prev_exon.scaffold_end = new_prev_exon.scaffold_end-i
+                new_next_exon = copy(self.next_exon)
+                new_next_exon.sequence = self.sequence[-i:]+new_next_exon.sequence
+                new_next_exon.scaffold_start = new_next_exon.scaffold_start-i
+                new_variation = Intron(self.scaffold_name, scaffold_start=self.scaffold_start - i, scaffold_end=self.scaffold_end - i, gene=self.gene, \
+                                       sequence=new_seq, prev_exon=new_prev_exon, next_exon=new_next_exon)
                 
             else:
                 if i + 1 > len(mrs) or i + 1 > len(self.sequence) or self.sequence[i] != mrs[i]:
                     break
                 new_seq=self.sequence[i:]+mrs[:i]
-                new_variation = Intron(self.scaffold_name, scaffold_start=self.scaffold_start + i, scaffold_end=self.scaffold_end + i, gene=self.gene, sequence=new_seq)
+                new_prev_exon = copy(self.prev_exon)
+                new_prev_exon.sequence = new_prev_exon.sequence+self.sequence[:i]
+                new_prev_exon.scaffold_end = new_prev_exon.scaffold_end+i
+                new_next_exon = copy(self.next_exon)
+                new_next_exon.sequence = new_next_exon.sequence[i:]
+                new_next_exon.scaffold_start = new_next_exon.scaffold_start+i
+                new_variation = Intron(self.scaffold_name, scaffold_start=self.scaffold_start + i, scaffold_end=self.scaffold_end + i, gene=self.gene, \
+                                       sequence=new_seq, prev_exon=new_prev_exon, next_exon=new_next_exon)
             self.variations.append(new_variation)
             i += 1
 
@@ -441,7 +454,7 @@ class Intron(GenomicSequence):
         seq=self.sequence
         if self.next_exon: nex=self.next_exon.sequence[:3]
         else: nex=None
-        if self.prev_exon: prev=self.prev_exon.sequence[-1]
+        if self.prev_exon and self.prev_exon.sequence: prev=self.prev_exon.sequence[-1]
         else: prev=None
         i=0
         
