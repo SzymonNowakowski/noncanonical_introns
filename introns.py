@@ -85,11 +85,11 @@ class Gene(GenomicSequence):
             self.expansion_left = expansion_left
         for exon in self.exons:
             if self.strand == '+':
-                exon.sequence = self.sequence[exon.start - self.scaffold_start:exon.end - self.scaffold_start]
+                exon.sequence = self.sequence[exon.scaffold_start - self.scaffold_start:exon.scaffold_end - self.scaffold_start]
             elif self.strand == '-':
-                exon.sequence = self.sequence[- exon.end + self.scaffold_end:- exon.start + self.scaffold_end]
+                exon.sequence = self.sequence[- exon.scaffold_end + self.scaffold_end:- exon.scaffold_start + self.scaffold_end]
             else:
-                print(self.name, exon.scaffold_name, exon.start, exon.end)
+                print(self.name, exon.scaffold_name, exon.scaffold_start, exon.scaffold_end)
                 # raise Exception('co jest')
         transcript_sequence = self.get_transcript_sequence()
         self.transcript = Transcript(self.scaffold_name, self.scaffold_start, self.scaffold_end, strand=self.strand,
@@ -106,7 +106,7 @@ class Gene(GenomicSequence):
     def get_transcript_sequence(self):
         exons_seqs = []
         for exon in self.exons:
-            exons_seqs.append((exon.sequence, exon.start))
+            exons_seqs.append((exon.sequence, exon.scaffold_start))
         if self.strand == '+':
             exons_seqs.sort(key=lambda tup: tup[1])
         elif self.strand == '-':
