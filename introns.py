@@ -148,27 +148,27 @@ class Gene(GenomicSequence):
             return
         else:
             self.introns = []
-            start, end = 0, 0
+            scaffold_start, scaffold_end = 0, 0
             for exon in self.exons:
                 prev_e = exon.prev_exon
-                end = exon.start - 1
-                if start:
+                scaffold_end = exon.scaffold_start - 1
+                if scaffold_start:
                     if self.strand == '+':
-                        sequence = self.sequence[start - self.scaffold_start:end - self.scaffold_start]
+                        sequence = self.sequence[scaffold_start - self.scaffold_start:scaffold_end - self.scaffold_start]
                     elif self.strand == '-':
-                        sequence = self.sequence[- end + self.scaffold_end: - start + self.scaffold_end]
-                    int=Intron(self.scaffold_name, start, end, strand=self.strand, sequence=sequence, gene=self, prev_exon=prev_e, next_exon=exon)
-                    self.append_introns(int)
+                        sequence = self.sequence[- scaffold_end + self.scaffold_end: - scaffold_start + self.scaffold_end]
+                    intron = Intron(self.scaffold_name, scaffold_start, scaffold_end, strand=self.strand, sequence=sequence, gene=self, prev_exon=prev_e, next_exon=exon)
+                    self.append_introns(intron)
                     
-                    prev_e.next_intron = int
-                    exon.prev_intron=int
+                    prev_e.next_intron = intron
+                    exon.prev_intron = intron
 
                     prev_e=exon
                     # elif self.strand == '-':
                     #     self.append_introns(Intron(self.scaffold_name, end, start))
                     # else:
                     #     raise Exception('co jest')
-                start = exon.end
+                scaffold_start = exon.scaffold_end
         for intron in self.introns:
             intron.movable_boundary_no_margins()
         
@@ -276,7 +276,7 @@ class Intron(GenomicSequence):
     #     elif self.start == intron.start or self.end == intron.end:
     #         return 1
     #     else:
-            return 0
+    #        return 0
 
     def movable_boundary(self):
         # moglem zepsuc
