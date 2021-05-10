@@ -152,7 +152,7 @@ class Gene(GenomicSequence):
             start, end = 0, 0
             for exon in self.exons:
                 prev_e = exon.prev_exon
-                end = exon.scaffold_start - 1
+                end = exon.scaffold_start
                 if start:
                     if self.strand == '+':
                         sequence = self.sequence[start - self.scaffold_start:end - self.scaffold_start]
@@ -235,6 +235,8 @@ class Intron(GenomicSequence):
         self.is_nonconventional = 0
         self.prev_exon = prev_exon
         self.next_exon = next_exon
+        self.best_conv_var=0 #variation of the intron with the best conventional version
+        self.best_nonconv_var=0 #variation of the intron with the best nonconventional version
         
         if self.strand=='-':
             self.gene_start, self.gene_end = -self.scaffold_end + self.gene.scaffold_end, -self.scaffold_start + self.gene.scaffold_end
@@ -360,7 +362,8 @@ class Intron(GenomicSequence):
                 new_next_exon = copy(self.next_exon)
                 new_next_exon.sequence = self.sequence[-i:]+new_next_exon.sequence
                 new_next_exon.scaffold_start = new_next_exon.scaffold_start-i
-                new_variation = Intron(self.scaffold_name, scaffold_start=self.scaffold_start - i, scaffold_end=self.scaffold_end - i, gene=self.gene, \
+                new_variation = Intron(self.scaffold_name, scaffold_start=self.scaffold_start - i, \
+                                       scaffold_end=self.scaffold_end - i, gene=self.gene, \
                                        sequence=new_seq, prev_exon=new_prev_exon, next_exon=new_next_exon)
                 
             else:
@@ -373,7 +376,8 @@ class Intron(GenomicSequence):
                 new_next_exon = copy(self.next_exon)
                 new_next_exon.sequence = new_next_exon.sequence[i:]
                 new_next_exon.scaffold_start = new_next_exon.scaffold_start+i
-                new_variation = Intron(self.scaffold_name, scaffold_start=self.scaffold_start + i, scaffold_end=self.scaffold_end + i, gene=self.gene, \
+                new_variation = Intron(self.scaffold_name, scaffold_start=self.scaffold_start + i, \
+                                       scaffold_end=self.scaffold_end + i, gene=self.gene, \
                                        sequence=new_seq, prev_exon=new_prev_exon, next_exon=new_next_exon)
             self.variations.append(new_variation)
             i += 1
@@ -411,6 +415,10 @@ class Intron(GenomicSequence):
             return False
             
     def conventional_version(self):
+        def rate(wersja):
+            wagi={0:0, 1:1, 2:3, 3:5, 4:7, 5:2, 6:4, 7:6, 8:8}
+            return wagi.get(wersja)
+        
         if self.sequence[0:2] in ['GT', 'GC'] and self.sequence[-2:] == 'AG':
             i = 4
         else:
@@ -443,6 +451,15 @@ class Intron(GenomicSequence):
         #                 i = 1
         #     if self.sequence[-2] == 'G': i += 4
         #     self.is_conventional = i
+
+        self.best_conv_var = self.is_conventional
+        if not self.variations:
+            return
+        for var in self.variations:
+            var.conventional_version()
+            if (var.is_conventional and rate(var.is_conventional)<rate(self.best_conv_var)) or (var.is_conventional and self.best_conv_var==0):
+                self.best_conv_var = var.is_conventional
+        
 
     def nonconventional_version(self):
         def isR(N):
@@ -481,6 +498,15 @@ class Intron(GenomicSequence):
                                 i=4
                                 
         self.is_nonconventional = i
+        self.best_nonconv_var=self.is_nonconventional
+        if not self.variations:
+            return
+        
+        for var in self.variations:
+            var.nonconventional_version()
+            if (var.is_nonconventional and self.best_nonconv_var and var.is_nonconventional<self.best_nonconv_var) \
+            or (var.is_nonconventional and self.best_nonconv_var==0):
+                self.best_nonconv_var = var.is_nonconventional
         
 
 class Exon(GenomicSequence):
