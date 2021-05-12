@@ -201,9 +201,13 @@ class Intron(GenomicSequence):
     :param support: (int) Optional, how many reads support the intron.
     :param margin_left: (int) Optional, how many nucleotides from the preceding exon are included.
     :param margin_right: (int) Optional, how many nucleotides from the following exon are included.
-    :param margin_left: (str) Optional, end sequence from the preceding exon.
-    :param margin_right: (str) Optional, beginning sequence of the following exon.
+    :param margin_left_seq: (str) Optional, end sequence from the preceding exon.
+    :param margin_right_seq: (str) Optional, beginning sequence of the following exon.
     :param sequence: (str) Optional, genomic sequence of the intron.
+    :param is_conventional: (int) Optional, number of the conventional class the intron belongs to; if isn't conventional then 0.
+    :param is_nonconventional: (int) Optional, number of the nonconventional class the intron belongs to; if isn't nonconventional then 0.
+    :param best_conv_var: (int) Optional, unique to main intron, absent in variations; number of the best conventional class out of all variations.
+    :param best_nonconv_var: (int) Optional, unique to main intron, absent in variations; number of the best nonconventional class out of all variations.
     """
     scaffold_name = str
     scaffold_start = int
@@ -218,6 +222,7 @@ class Intron(GenomicSequence):
     sequence = str
     margin_left_seq = str
     margin_right_seq = str
+    variations = list
     is_conventional = int
     is_nonconventional = int
 
@@ -237,6 +242,7 @@ class Intron(GenomicSequence):
         self.next_exon = next_exon
         self.best_conv_var=0 #variation of the intron with the best conventional version
         self.best_nonconv_var=0 #variation of the intron with the best nonconventional version
+        # TODO przy zmienianiu podstawowego intronu trzeba przepisac best_(non)conv_var i liste wariacji - warianty ich nie maja i zawsze maja nie miec
         
         if self.strand=='-':
             self.gene_start, self.gene_end = -self.scaffold_end + self.gene.scaffold_end, -self.scaffold_start + self.gene.scaffold_end
@@ -350,35 +356,33 @@ class Intron(GenomicSequence):
         check = 'left'
         
         while True:
-            if check == 'left':
+            new_prev_exon = copy(self.prev_exon)
+            new_next_exon = copy(self.next_exon)
+            if check == 'left': #checking to the left
                 if i > len(mls) or i > len(self.sequence) or mls[-i] != self.sequence[-i]:
                     check = 'right'
                     i = 0
                     continue
                 new_seq=mls[-i:]+self.sequence[:-i]
-                new_prev_exon = copy(self.prev_exon)
                 new_prev_exon.sequence = new_prev_exon.sequence[:-i]
                 new_prev_exon.scaffold_end = new_prev_exon.scaffold_end-i
-                new_next_exon = copy(self.next_exon)
                 new_next_exon.sequence = self.sequence[-i:]+new_next_exon.sequence
                 new_next_exon.scaffold_start = new_next_exon.scaffold_start-i
-                new_variation = Intron(self.scaffold_name, scaffold_start=self.scaffold_start - i, \
-                                       scaffold_end=self.scaffold_end - i, gene=self.gene, \
-                                       sequence=new_seq, prev_exon=new_prev_exon, next_exon=new_next_exon)
+                #creating new variation moved to the left
+                new_variation = Intron(self.scaffold_name, scaffold_start=self.scaffold_start - i, scaffold_end=self.scaffold_end - i, \
+                                       gene=self.gene, sequence=new_seq, prev_exon=new_prev_exon, next_exon=new_next_exon)
                 
-            else:
+            else: #checking to the right
                 if i + 1 > len(mrs) or i + 1 > len(self.sequence) or self.sequence[i] != mrs[i]:
                     break
                 new_seq=self.sequence[i:]+mrs[:i]
-                new_prev_exon = copy(self.prev_exon)
                 new_prev_exon.sequence = new_prev_exon.sequence+self.sequence[:i]
                 new_prev_exon.scaffold_end = new_prev_exon.scaffold_end+i
-                new_next_exon = copy(self.next_exon)
                 new_next_exon.sequence = new_next_exon.sequence[i:]
                 new_next_exon.scaffold_start = new_next_exon.scaffold_start+i
-                new_variation = Intron(self.scaffold_name, scaffold_start=self.scaffold_start + i, \
-                                       scaffold_end=self.scaffold_end + i, gene=self.gene, \
-                                       sequence=new_seq, prev_exon=new_prev_exon, next_exon=new_next_exon)
+                #creating new variation moved to the right
+                new_variation = Intron(self.scaffold_name, scaffold_start=self.scaffold_start + i, scaffold_end=self.scaffold_end + i, \
+                                       gene=self.gene, sequence=new_seq, prev_exon=new_prev_exon, next_exon=new_next_exon)
             self.variations.append(new_variation)
             i += 1
 
@@ -469,9 +473,15 @@ class Intron(GenomicSequence):
             if N in ["C", "T"]: return True
             return False
         seq=self.sequence
-        if self.next_exon: nex=self.next_exon.sequence[:3]
+        if self.next_exon and self.next_exon.sequence:
+            nex=self.next_exon.sequence[:3]
+            if len(nex)==2:
+                nex=nex+" "
+            elif len(nex)==1:
+                nex=nex+"  "
         else: nex=None
-        if self.prev_exon and self.prev_exon.sequence: prev=self.prev_exon.sequence[-1]
+        if self.prev_exon and self.prev_exon.sequence:
+            prev=self.prev_exon.sequence[-1]
         else: prev=None
         i=0
         
@@ -504,8 +514,7 @@ class Intron(GenomicSequence):
         
         for var in self.variations:
             var.nonconventional_version()
-            if (var.is_nonconventional and self.best_nonconv_var and var.is_nonconventional<self.best_nonconv_var) \
-            or (var.is_nonconventional and self.best_nonconv_var==0):
+            if (var.is_nonconventional and var.is_nonconventional<self.best_nonconv_var) or (var.is_nonconventional and self.best_nonconv_var==0):
                 self.best_nonconv_var = var.is_nonconventional
         
 
