@@ -30,7 +30,7 @@ def split(k, seqs):
     return [" ".join(kmers(sequence, k)) for sequence in seqs]
 
 
-def preprocess(cut, k, sequences, file_out):
+def preprocess_file(cut, k, sequences, file_out):
     """Optionally cut off junctions, then split into k-length oligonucleotides and convert into TF_IDF."""
     sequences_cut = cut_junctions(cut, [x[1] for x in sequences])
     split_seqs = split(k, sequences_cut)
@@ -38,3 +38,13 @@ def preprocess(cut, k, sequences, file_out):
     tfidf_vectorizer_vectors = tfidf_vectorizer.fit_transform(split_seqs)
     print(type(tfidf_vectorizer_vectors))
     np.save(file_out, tfidf_vectorizer_vectors)
+    
+def preprocess(cut, k, sequences):
+    """Optionally cut off junctions, then split into k-length oligonucleotides and convert into TF_IDF."""
+    sequences_cut = cut_junctions(cut, [x[1] for x in sequences])
+    split_seqs = split(k, sequences_cut)
+    tfidf_vectorizer = TfidfVectorizer(use_idf=True, lowercase=False)
+    tfidf_vectorizer_vectors = tfidf_vectorizer.fit_transform(split_seqs)
+    print(type(tfidf_vectorizer_vectors))
+    return sequences_cut, split_seqs, tfidf_vectorizer_vectors
+
