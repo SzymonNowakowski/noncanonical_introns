@@ -46,5 +46,5 @@ def preprocess(cut, k, sequences):
     tfidf_vectorizer = TfidfVectorizer(use_idf=True, lowercase=False)
     tfidf_vectorizer_vectors = tfidf_vectorizer.fit_transform(split_seqs)
     print(type(tfidf_vectorizer_vectors))
-    return sequences_cut, split_seqs, tfidf_vectorizer_vectors
+    return sequences_cut, split_seqs, tfidf_vectorizer_vectors, tfidf_vectorizer
 
