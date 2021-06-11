@@ -72,7 +72,7 @@ for x in range(1,8):
     assess_cluster(clusters7[x-1], n_of_clusters, types)
     print('\n') 
 
-for n in range(4, 12):
+for n in range(4, 6):
     print('\nlen of ogligonucleotides: ', n)
     for cut in range(2):
         if cut == 0:

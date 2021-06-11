@@ -8,7 +8,8 @@
 #SBATCH --time=02:00:00 
 
 
-cp -r ~/introns /scratch/$SLURM_JOB_ID
+ln -s ~/introns /scratch/$SLURM_JOB_ID/introns 
 
-singularity exec --nv  --bind /scratch/$SLURM_JOB_ID:/scratch docker://akalinow/tensorflow-gpu:latest /scratch/introns/noncanonical_introns/runme.sh > ~/output-$SLURM_JOB_ID
+
+singularity exec --nv  --bind /scratch/$SLURM_JOB_ID:/scratch docker://akalinow/tensorflow-gpu:latest /scratch/introns/noncanonical_introns/runme.sh >& ~/output-$SLURM_JOB_ID
 
