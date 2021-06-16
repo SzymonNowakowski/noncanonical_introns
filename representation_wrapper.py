@@ -69,7 +69,7 @@ class RepresentationWrapper:
             
         vectorizer = TfidfVectorizer(lowercase=False, analyzer = "word", token_pattern="(?=([%s]{%d}))"%(alphabet_str, ngram_length))
         #positivelookahed used for matching overlapping expressions: https://exceptionshub.com/how-to-find-overlapping-matches-with-a-regexp.html
-        self.vector = vectorizer.fit_transform(self.sequences)
+        self.vector = vectorizer.fit_transform(self.sequences).astype(numpy.float32)
         return self.vector
 
     def to_fast_bag_of_words(self, ngram_length=4, space_treatment="exclude") -> []:
@@ -109,7 +109,7 @@ class RepresentationWrapper:
             
         vectorizer = CountVectorizer(lowercase=False, analyzer = "word", token_pattern="(?=([%s]{%d}))"%(alphabet_str, ngram_length))
         #positivelookahed used for matching overlapping expressions: https://exceptionshub.com/how-to-find-overlapping-matches-with-a-regexp.html
-        self.vector = vectorizer.fit_transform(self.sequences)
+        self.vector = vectorizer.fit_transform(self.sequences).astype(numpy.int16)
         return self.vector
 
     
