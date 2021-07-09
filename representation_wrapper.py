@@ -67,9 +67,9 @@ class RepresentationWrapper:
         else:
             raise WrappingException("Unknown space treatment type: %s"%space_treatment)
             
-        vectorizer = TfidfVectorizer(lowercase=False, analyzer = "word", token_pattern="(?=([%s]{%d}))"%(alphabet_str, ngram_length))
+        vectorizer = TfidfVectorizer(lowercase=False, analyzer = "word", dtype=numpy.float32, token_pattern="(?=([%s]{%d}))"%(alphabet_str, ngram_length))
         #positivelookahed used for matching overlapping expressions: https://exceptionshub.com/how-to-find-overlapping-matches-with-a-regexp.html
-        self.vector = vectorizer.fit_transform(self.sequences).astype(numpy.float32)
+        self.vector = vectorizer.fit_transform(self.sequences)
         return self.vector
 
     def to_fast_bag_of_words(self, ngram_length=4, space_treatment="exclude") -> []:
@@ -107,13 +107,23 @@ class RepresentationWrapper:
         else:
             raise WrappingException("Unknown space treatment type: %s"%space_treatment)
             
-        vectorizer = CountVectorizer(lowercase=False, analyzer = "word", token_pattern="(?=([%s]{%d}))"%(alphabet_str, ngram_length))
+        vectorizer = CountVectorizer(lowercase=False, analyzer = "word", dtype=numpy.int16, token_pattern="(?=([%s]{%d}))"%(alphabet_str, ngram_length))
         #positivelookahed used for matching overlapping expressions: https://exceptionshub.com/how-to-find-overlapping-matches-with-a-regexp.html
-        self.vector = vectorizer.fit_transform(self.sequences).astype(numpy.int16)
+        self.vector = vectorizer.fit_transform(self.sequences)
         return self.vector
 
-    
-    
+    def to_kmer(self, k, filename):
+        # Creates a new file
+        with open(filename, 'w') as handle:
+            handle.write("sequence\tlabel\n")
+            for i, seq in enumerate(self.sequences):
+                if i%100000 == 0:
+                    print(i)
+                handle.write(seq2kmer(seq, k)+"\t%d\n"%self.classes[i])
+                
+            
+        
+        
     def last_vector_representation(self, n=4) -> []:
         return self.vector
     
@@ -129,3 +139,20 @@ class RepresentationWrapper:
         pandas_dataframe["length"] = lengths
         return pandas_dataframe
          
+        
+def seq2kmer(seq, k):
+    """
+    from DNABBERT: https://github.com/jerryji1993/DNABERT
+    Convert original sequence to kmers
+    
+    Arguments:
+    seq -- str, original sequence.
+    k -- int, kmer of length k specified.
+    
+    Returns:
+    kmers -- str, kmers separated by space
+
+    """
+    kmer = [seq[x:x+k] for x in range(len(seq)+1-k)]
+    kmers = " ".join(kmer)
+    return kmers
