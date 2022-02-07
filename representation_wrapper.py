@@ -8,7 +8,7 @@ class WrappingException(Exception):
         self.error_message = error_message
 
 class RepresentationWrapper:
-    def __init__(self, sequences, type_of_input, alphabet: [], space_character, classes):
+    def __init__(self, sequences, type_of_input, alphabet: [], space_character, labels):
         #type_of_input is one of:
         #"list_of_FASTA_pairs" - this is how Bio reads FASTA format, with the first pair element being the gene/sequence name/annotation, and the second pair element is the sequence string
         if type_of_input == "list_of_FASTA_pairs":
@@ -19,7 +19,7 @@ class RepresentationWrapper:
                 self.sequences.append(pair[1]) 
             self.alphabet = alphabet
             self.space_character = space_character
-            self.classes = classes
+            self.labels = labels
         else:
             raise WrappingException("Unknown input type: %s"%type_of_input)
     
@@ -36,12 +36,12 @@ class RepresentationWrapper:
             if len(letters - extended_alphabet) > 0:
                 return False, "Sequence %d has some letters outside of the alhpabet (and space): %s"%(ind, letters - {self.space_character} - set(self.alphabet))
     
-        # check if len of classes is the same as len of sequences:
-        if self.classes is None:
-            comments = comments + ", but classes are not provided"
+        # check if len of labels is the same as len of sequences:
+        if self.labels is None:
+            comments = comments + ", but labels are not provided"
         else:
-            if len(self.sequences) != len(self.classes):
-                return False, "Length of classes list doesn't match sequence count"
+            if len(self.sequences) != len(self.labels):
+                return False, "Length of labels list doesn't match sequence count"
 
         
           # check if len of names is the same as len of sequences:
@@ -55,7 +55,7 @@ class RepresentationWrapper:
     def to_TfIdf(self, ngram_length=4, space_treatment="exclude") -> []:
         #space_treatment is one of
         #"include" - it will treat space as a regular alphabet characters e.g. for "atcg_attcg" will be decomposed into 9 n-grams with length n=4: atcg, tcg_, cg_a, g_at, _att, attc, ttcg
-        #"exclude" (default) - it will exclude all n-grams with spaces, e.g. string "atcg_attcg" will be decomposed into 3 ng-rams with length n=4: atcg, attc, ttcg
+        #"exclude" (default) - it will exclude all n-grams with spaces, e.g. string "atcg_attcg" will be decomposed into 3 n-grams with length n=4: atcg, attc, ttcg
         #"average" (not implemented)- treat space as any possible letter from alhpabet, "atcg_attcg" should be treated as a sequence representing 25% chances of being "atcgAattcg", 25% chances of being "atcgTattcg", 25% chances of being "atcgCattcg", 25% chances of being "atcgGattcg".
         
         if space_treatment == "include":
@@ -75,7 +75,7 @@ class RepresentationWrapper:
     def to_fast_bag_of_words(self, ngram_length=4, space_treatment="exclude") -> []:
         #space_treatment is one of
         #"include" - it will treat space as a regular alphabet characters e.g. for "atcg_attcg" will be decomposed into 9 n-grams with length n=4: atcg, tcg_, cg_a, g_at, _att, attc, ttcg
-        #"exclude" (default) - it will exclude all n-grams with spaces, e.g. string "atcg_attcg" will be decomposed into 3 ng-rams with length n=4: atcg, attc, ttcg
+        #"exclude" (default) - it will exclude all n-grams with spaces, e.g. string "atcg_attcg" will be decomposed into 3 n-grams with length n=4: atcg, attc, ttcg
         #"average" (not implemented)- treat space as any possible letter from alhpabet, "atcg_attcg" should be treated as a sequence representing 25% chances of being "atcgAattcg", 25% chances of being "atcgTattcg", 25% chances of being "atcgCattcg", 25% chances of being "atcgGattcg".
         
         if space_treatment == "include":
@@ -95,7 +95,7 @@ class RepresentationWrapper:
     def to_bag_of_words(self, ngram_length=4, space_treatment="exclude") -> []:
         #space_treatment is one of
         #"include" - it will treat space as a regular alphabet characters e.g. for "atcg_attcg" will be decomposed into 9 n-grams with length n=4: atcg, tcg_, cg_a, g_at, _att, attc, ttcg
-        #"exclude" (default) - it will exclude all n-grams with spaces, e.g. string "atcg_attcg" will be decomposed into 3 ng-rams with length n=4: atcg, attc, ttcg
+        #"exclude" (default) - it will exclude all n-grams with spaces, e.g. string "atcg_attcg" will be decomposed into 3 n-grams with length n=4: atcg, attc, ttcg
         #"average" (not implemented)- treat space as any possible letter from alhpabet, "atcg_attcg" should be treated as a sequence representing 25% chances of being "atcgAattcg", 25% chances of being "atcgTattcg", 25% chances of being "atcgCattcg", 25% chances of being "atcgGattcg".
         
         if space_treatment == "include":
@@ -112,14 +112,15 @@ class RepresentationWrapper:
         self.vector = vectorizer.fit_transform(self.sequences)
         return self.vector
 
-    def to_kmer(self, k, filename):
+    def to_kmer(self, k, filename, upper_length_limit=None):
         # Creates a new file
         with open(filename, 'w') as handle:
             handle.write("sequence\tlabel\n")
             for i, seq in enumerate(self.sequences):
                 if i%100000 == 0:
                     print(i)
-                handle.write(seq2kmer(seq, k)+"\t%d\n"%self.classes[i])
+                if upper_length_limit is None or len(seq)<upper_length_limit:
+                    handle.write(seq2kmer(seq, k)+"\t%d\n"%self.labels[i])
                 
             
         
@@ -135,9 +136,9 @@ class RepresentationWrapper:
             pandas_objects.append(pandas.Series(data=list(self.sequences[ind]), name=self.names[ind]))
             lengths.append(len(self.sequences[ind]))
         pandas_dataframe = pandas.DataFrame(pandas_objects, dtype = pandas.SparseDtype("object", numpy.nan))
-        pandas_dataframe["class"] = self.classes
+        pandas_dataframe["label"] = self.labels
         pandas_dataframe["length"] = lengths
-        return pandas_dataframe
+        return pandas_dataframe.copy()   #To get a de-fragmented frame, use `newframe = frame.copy()`
          
         
 def seq2kmer(seq, k):
